@@ -19,6 +19,15 @@ _PATTERNS = [
     ("thai_national_id", re.compile(r"\b\d{1}-\d{4}-\d{5}-\d{2}-\d{1}\b"), "[THAI_ID]"),
     ("phone", re.compile(r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b"), "[PHONE]"),
     ("ip_address", re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"), "[IP]"),
+    # Heuristic address detection: number + street name + common suffixes
+    ("address", re.compile(
+        r"\b\d{1,5}\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\s+"
+        r"(?:St(?:reet)?|Ave(?:nue)?|Blvd|Boulevard|Rd|Road|Dr(?:ive)?|"
+        r"Ln|Lane|Ct|Court|Pl(?:ace)?|Way|Hwy|Highway)"
+        r"(?:\s*[,.]?\s*(?:Apt|Suite|Unit|#)\s*\d+)?"
+        r"(?:\s*[,.]?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)?"
+        r"(?:\s*[,.]?\s*[A-Z]{2}\s+\d{5}(?:-\d{4})?)?\b"
+    ), "[ADDRESS]"),
 ]
 
 # Sensitive keywords that indicate the message might contain PII

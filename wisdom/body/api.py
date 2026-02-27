@@ -37,7 +37,7 @@ _wisdom: Wisdom | None = None
 
 # Simple in-memory rate limiter: {ip: [timestamps]}
 _rate_limits: dict[str, list[float]] = defaultdict(list)
-_RATE_LIMIT = 60  # requests per minute
+_RATE_LIMIT = 100  # requests per minute
 
 
 def get_wisdom() -> Wisdom:
@@ -63,6 +63,7 @@ def _check_rate_limit(request: Request) -> None:
 class ChatRequest(BaseModel):
     user_id: str
     message: str
+    stream: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -98,11 +99,47 @@ class AssessmentAnswer(BaseModel):
 
 # --- Endpoints ---
 
-@app.post("/api/v1/chat", response_model=ChatResponse)
+@app.post("/api/v1/chat")
 def chat(request: ChatRequest, req: Request):
-    """Send a message to WISDOM and get a response."""
+    """Send a message to WISDOM and get a response.
+
+    If stream=true in body, returns Server-Sent Events stream.
+    Otherwise returns a full ChatResponse JSON.
+    """
     _check_rate_limit(req)
     w = get_wisdom()
+
+    # SSE streaming mode
+    if request.stream:
+        def event_generator() -> Generator[str, None, None]:
+            from wisdom.voice.chat_engine import ChatEngine
+
+            profile = w.profile_manager.get_or_create(request.user_id)
+            history = w.memory.get_history(request.user_id)
+            tone_hints = w.tone_adapter.get_adaptation(profile, history)
+
+            safe_message = request.message
+            if not w.llm_provider.is_local():
+                safe_message = w.privacy_manager.sanitize(request.message)
+
+            engine = ChatEngine(w.llm_provider)
+            full_response = ""
+            for chunk in engine.generate_stream(
+                user_message=safe_message,
+                profile=profile,
+                history=history,
+                tone_hints=tone_hints,
+            ):
+                full_response += chunk
+                yield f"data: {chunk}\n\n"
+
+            w.memory.add_message(request.user_id, "user", request.message)
+            w.memory.add_message(request.user_id, "wisdom", full_response)
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+    # Synchronous mode
     response = w.chat(request.message, user_id=request.user_id)
     profile = w.profile_manager.get(request.user_id)
     return ChatResponse(

@@ -71,6 +71,12 @@ class TestPrivacyManager:
         assert "[EMAIL]" in sanitized
         assert len(findings) >= 1
 
+    def test_sanitize_address(self):
+        text = "I live at 123 Main Street, New York, NY 10001"
+        result = self.pm.sanitize(text)
+        assert "[ADDRESS]" in result
+        assert "123 Main Street" not in result
+
     def test_whitelist(self):
         self.pm.add_whitelist("test@example.com")
         self.pm.remove_whitelist("test@example.com")
