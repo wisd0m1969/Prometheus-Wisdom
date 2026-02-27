@@ -1,15 +1,28 @@
-"""Chat UI component — bubbles, streaming, and onboarding flow."""
+"""Chat UI component — message bubbles, streaming, and onboarding flow.
+
+Provides polished onboarding with multilingual greetings,
+real-time streaming responses, and mode-aware chat display.
+"""
 
 from __future__ import annotations
 
 import streamlit as st
 
+from wisdom.core.constants import SUPPORTED_LANGUAGES
 from wisdom.voice.prompt_templates import PromptTemplates
 
 
 def render_chat() -> None:
-    """Render the main chat interface."""
-    st.header("💬 Chat with WISDOM")
+    """Render the main chat interface with streaming support."""
+    mode = st.session_state.chat_engine.get_mode()
+    mode_labels = {
+        "free_chat": "💬 Free Chat",
+        "teacher": "📚 Teacher Mode",
+        "researcher": "🔍 Researcher Mode",
+        "quiz_master": "❓ Quiz Master",
+        "code_helper": "💻 Code Helper",
+    }
+    st.header(mode_labels.get(mode, "💬 Chat with WISDOM"))
 
     # Display message history
     for msg in st.session_state.messages:
@@ -39,6 +52,12 @@ def render_chat() -> None:
         # Get tone adaptation
         tone_hints = st.session_state.tone_adapter.get_adaptation(profile, history)
 
+        # Auto-detect mode via adaptation engine
+        if hasattr(st.session_state, "adaptation_engine"):
+            adaptation = st.session_state.adaptation_engine.adapt(profile, prompt, history)
+            if adaptation.recommended_mode != mode:
+                st.session_state.chat_engine.set_mode(adaptation.recommended_mode)
+
         # Sanitize if using cloud LLM
         safe_message = prompt
         if not st.session_state.llm_provider.is_local():
@@ -47,18 +66,17 @@ def render_chat() -> None:
         # Generate streaming response
         with st.chat_message("assistant"):
             try:
-                response_chunks = []
-                with st.spinner("WISDOM is thinking..."):
-                    for chunk in st.session_state.chat_engine.generate_stream(
-                        user_message=safe_message,
-                        profile=profile,
-                        history=history,
-                        tone_hints=tone_hints,
-                    ):
-                        response_chunks.append(chunk)
-
-                full_response = "".join(response_chunks)
-                st.markdown(full_response)
+                message_placeholder = st.empty()
+                full_response = ""
+                for chunk in st.session_state.chat_engine.generate_stream(
+                    user_message=safe_message,
+                    profile=profile,
+                    history=history,
+                    tone_hints=tone_hints,
+                ):
+                    full_response += chunk
+                    message_placeholder.markdown(full_response + "▌")
+                message_placeholder.markdown(full_response)
             except RuntimeError as e:
                 full_response = f"⚠️ {e}\n\nPlease configure an LLM provider (Ollama or Gemini)."
                 st.error(full_response)
@@ -85,10 +103,20 @@ def render_onboarding() -> None:
 
     st.write("")
     st.write("I'm **WISDOM** — your AI friend. I'm here to help you learn about AI, step by step.")
+    st.write("No experience needed. No judgment. Just learning together. 🤝")
     st.write("")
 
     # Name input
     name = st.text_input("What's your name? (optional — you can skip this)")
+
+    # Language selector
+    lang_options = {code: info["name"] for code, info in SUPPORTED_LANGUAGES.items()}
+    selected_lang = st.selectbox(
+        "Preferred language",
+        options=list(lang_options.keys()),
+        format_func=lambda x: f"{lang_options[x]} {SUPPORTED_LANGUAGES[x].get('greeting', '')}",
+        index=0,
+    )
 
     st.write("")
     st.write("**What would you like to do?**")
@@ -109,6 +137,7 @@ def render_onboarding() -> None:
         profile = st.session_state.profile_manager.get_or_create(st.session_state.user_id)
         if name:
             profile.name = name
+        profile.language = selected_lang
         if choice == "learn":
             profile.goals = ["Learn about AI"]
         elif choice == "help":
@@ -117,7 +146,7 @@ def render_onboarding() -> None:
         st.session_state.onboarded = True
 
         # Set welcome message
-        greeting = PromptTemplates.get_greeting(profile.language)
+        greeting = PromptTemplates.get_greeting(selected_lang)
         if name:
             greeting = greeting.replace("WISDOM", f"WISDOM, {name}! 🎉")
         st.session_state.messages = [{"role": "wisdom", "content": greeting}]

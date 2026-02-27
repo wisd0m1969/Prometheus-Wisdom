@@ -1,7 +1,9 @@
-"""5-question adaptive skill assessment (0-10 scale).
+"""5-category adaptive skill assessment (0-10 scale).
 
 Categories: AI Awareness (30%), Prompt Skills (25%),
 Digital Literacy (20%), Coding Ability (15%), Domain Knowledge (10%)
+
+10 total questions (2 per category), adaptive difficulty.
 """
 
 from __future__ import annotations
@@ -10,35 +12,70 @@ from wisdom.core.constants import SKILL_CATEGORIES
 
 __all__ = ["SkillAssessor"]
 
-# Assessment questions by category and difficulty
+# Assessment questions: 2 per category, ordered easy → hard
 _QUESTIONS = {
     "ai_awareness": [
-        {"q": "Have you ever heard of ChatGPT or AI assistants?", "difficulty": 1},
-        {"q": "Can you name one thing AI can do?", "difficulty": 2},
-        {"q": "What is the difference between AI and a regular computer program?", "difficulty": 5},
-        {"q": "How does a language model generate text?", "difficulty": 8},
+        {
+            "id": "ai1", "q": "Have you ever heard of AI assistants like ChatGPT?",
+            "type": "choice", "options": ["Yes", "No", "What's that?"],
+            "scoring": {"Yes": 5, "No": 2, "What's that?": 0},
+            "difficulty": 1,
+        },
+        {
+            "id": "ai2", "q": "Can you name one thing AI can do?",
+            "type": "open", "difficulty": 3,
+            "scoring_hints": "Good answers mention: translate, write, search, answer questions, generate images. Score 0-10.",
+        },
     ],
     "prompt_skills": [
-        {"q": "If you wanted AI to help you write an email, how would you ask?", "difficulty": 2},
-        {"q": "What makes a good question to ask an AI?", "difficulty": 4},
-        {"q": "How would you use context and examples to improve AI output?", "difficulty": 6},
-        {"q": "Explain the concept of few-shot prompting.", "difficulty": 9},
+        {
+            "id": "ps1", "q": "If you wanted AI to help you write an email, how would you ask?",
+            "type": "open", "difficulty": 3,
+            "scoring_hints": "Good answers include context (who, what, tone). Vague = low. Specific = high. Score 0-10.",
+        },
+        {
+            "id": "ps2", "q": "What makes a good question to ask an AI?",
+            "type": "open", "difficulty": 5,
+            "scoring_hints": "Mentions: being specific, giving context, clear intent, examples. Score 0-10.",
+        },
     ],
     "digital_literacy": [
-        {"q": "How comfortable are you using a computer or smartphone?", "difficulty": 1},
-        {"q": "Have you ever used apps like Google Maps or YouTube?", "difficulty": 2},
-        {"q": "Can you explain what a web browser does?", "difficulty": 4},
-        {"q": "What is an API?", "difficulty": 7},
+        {
+            "id": "dl1", "q": "How comfortable are you using a computer or smartphone? (1=not at all, 5=very comfortable)",
+            "type": "scale", "min": 1, "max": 5, "difficulty": 1,
+            "scoring": "multiply by 2",  # 1→2, 5→10
+        },
+        {
+            "id": "dl2", "q": "What apps or websites do you use daily?",
+            "type": "open", "difficulty": 2,
+            "scoring_hints": "0 apps = 0, 1-2 basic (WhatsApp) = 3, 3-5 = 5, many varied = 8, technical tools = 10.",
+        },
     ],
     "coding_ability": [
-        {"q": "Have you ever written any code or used a spreadsheet formula?", "difficulty": 1},
-        {"q": "Do you know what 'if-else' means in programming?", "difficulty": 3},
-        {"q": "Can you write a simple loop in any language?", "difficulty": 6},
-        {"q": "Explain the difference between a class and a function.", "difficulty": 8},
+        {
+            "id": "ca1", "q": "Have you ever written any code or used a spreadsheet formula?",
+            "type": "choice", "options": ["Yes, I code regularly", "I've tried a little", "Never"],
+            "scoring": {"Yes, I code regularly": 8, "I've tried a little": 4, "Never": 0},
+            "difficulty": 1,
+        },
+        {
+            "id": "ca2", "q": "Do you know what 'if-else' means in programming?",
+            "type": "choice", "options": ["Yes, I can explain it", "I've heard of it", "No idea"],
+            "scoring": {"Yes, I can explain it": 9, "I've heard of it": 4, "No idea": 0},
+            "difficulty": 4,
+        },
     ],
     "domain_knowledge": [
-        {"q": "What is your area of expertise?", "difficulty": 1},
-        {"q": "How could AI potentially help in your field?", "difficulty": 3},
+        {
+            "id": "dk1", "q": "What is your field of work or study?",
+            "type": "open", "difficulty": 1,
+            "scoring_hints": "Any answer = 5 (everyone has domain knowledge). Detailed = 7. Expert-level description = 10.",
+        },
+        {
+            "id": "dk2", "q": "How could AI potentially help in your field?",
+            "type": "open", "difficulty": 3,
+            "scoring_hints": "No idea = 2, vague = 4, specific use case = 7, multiple detailed ideas = 10.",
+        },
     ],
 }
 
@@ -46,14 +83,32 @@ _QUESTIONS = {
 class SkillAssessor:
     """Adaptive assessment to determine user's AI knowledge level.
 
-    Runs 5 questions (one per category), adapting difficulty
-    based on previous answers.
+    Runs up to 10 questions (2 per category), adapting based on answers.
+    If Q1 in a category scores 0, Q2 is skipped (scored 0).
     """
 
     def __init__(self) -> None:
         self.scores: dict[str, float] = {}
-        self.current_category_idx = 0
         self._categories = list(SKILL_CATEGORIES.keys())
+        self._current_cat_idx = 0
+        self._current_q_idx = 0  # 0 or 1 within category
+        self._answers: list[dict] = []
+        self._started = False
+        self._completed = False
+
+    @property
+    def is_completed(self) -> bool:
+        return self._completed
+
+    def start_assessment(self) -> dict:
+        """Start or restart the assessment. Returns the first question."""
+        self.scores = {}
+        self._current_cat_idx = 0
+        self._current_q_idx = 0
+        self._answers = []
+        self._started = True
+        self._completed = False
+        return self._current_question()
 
     def get_next_question(self, previous_score: float | None = None) -> dict | None:
         """Get the next assessment question.
@@ -62,38 +117,55 @@ class SkillAssessor:
             previous_score: Score (0-10) for the previous answer.
 
         Returns:
-            Dict with 'category', 'question', 'difficulty' or None if done.
+            Dict with question details, or None if assessment is complete.
         """
-        # Record previous score
-        if previous_score is not None and self.current_category_idx > 0:
-            prev_cat = self._categories[self.current_category_idx - 1]
-            self.scores[prev_cat] = previous_score
+        if not self._started:
+            return self.start_assessment()
 
-        if self.current_category_idx >= len(self._categories):
+        # Record previous score
+        if previous_score is not None:
+            self._record_score(previous_score)
+
+            # Adaptive: skip Q2 if Q1 scored 0
+            if self._current_q_idx == 0 and previous_score == 0:
+                self._record_score(0)  # auto-score Q2 as 0
+                self._advance_category()
+            else:
+                self._current_q_idx += 1
+                if self._current_q_idx >= 2:
+                    self._advance_category()
+
+        if self._current_cat_idx >= len(self._categories):
+            self._completed = True
             return None
 
-        category = self._categories[self.current_category_idx]
-        questions = _QUESTIONS[category]
+        return self._current_question()
 
-        # Choose difficulty based on previous performance
-        if self.scores:
-            avg = sum(self.scores.values()) / len(self.scores)
-            target_diff = avg
-        else:
-            target_diff = 2  # Start easy
+    def answer_question(self, answer: str | int | float) -> dict | None:
+        """Process an answer and return next question or None if done.
 
-        # Find closest difficulty question
-        best = min(questions, key=lambda q: abs(q["difficulty"] - target_diff))
+        For choice questions, auto-scores. For open questions, returns
+        the question with scoring hints for LLM grading.
+        """
+        cat = self._categories[self._current_cat_idx]
+        questions = _QUESTIONS[cat]
+        q = questions[self._current_q_idx]
 
-        self.current_category_idx += 1
+        # Auto-score choice/scale questions
+        if q["type"] == "choice" and isinstance(q.get("scoring"), dict):
+            score = q["scoring"].get(str(answer), 0)
+            return self.get_next_question(previous_score=float(score))
+        elif q["type"] == "scale":
+            score = float(answer) * 2  # scale 1-5 → 0-10
+            return self.get_next_question(previous_score=min(10, score))
 
+        # Open questions need LLM grading — return scoring hints
+        self._answers.append({"question": q["q"], "answer": answer, "category": cat})
         return {
-            "category": category,
-            "category_label": SKILL_CATEGORIES[category]["label"],
-            "question": best["q"],
-            "difficulty": best["difficulty"],
-            "question_number": self.current_category_idx,
-            "total_questions": len(self._categories),
+            "needs_grading": True,
+            "question": q["q"],
+            "answer": answer,
+            "scoring_hints": q.get("scoring_hints", "Score 0-10 based on quality."),
         }
 
     def calculate_composite_score(self) -> float:
@@ -115,13 +187,53 @@ class SkillAssessor:
             return 3
         elif score < 8:
             return 5
-        else:
-            return 6
+        return 6
 
     def get_results(self) -> dict:
         """Get full assessment results."""
         return {
-            "category_scores": dict(self.scores),
+            "category_scores": {
+                cat: {
+                    "score": self.scores.get(cat, 0.0),
+                    "label": SKILL_CATEGORIES[cat]["label"],
+                    "weight": SKILL_CATEGORIES[cat]["weight"],
+                }
+                for cat in self._categories
+            },
             "composite_score": self.calculate_composite_score(),
             "starting_level": self.get_starting_level(),
+            "total_questions_answered": len(self._answers),
         }
+
+    # ─── Private Helpers ──────────────────────────────────────
+
+    def _current_question(self) -> dict | None:
+        if self._current_cat_idx >= len(self._categories):
+            return None
+
+        cat = self._categories[self._current_cat_idx]
+        questions = _QUESTIONS[cat]
+        if self._current_q_idx >= len(questions):
+            return None
+
+        q = questions[self._current_q_idx]
+        q_number = self._current_cat_idx * 2 + self._current_q_idx + 1
+
+        return {
+            "category": cat,
+            "category_label": SKILL_CATEGORIES[cat]["label"],
+            "question_number": q_number,
+            "total_questions": len(self._categories) * 2,
+            **q,
+        }
+
+    def _record_score(self, score: float) -> None:
+        cat = self._categories[self._current_cat_idx]
+        if cat not in self.scores:
+            self.scores[cat] = score
+        else:
+            self.scores[cat] = (self.scores[cat] + score) / 2
+
+    def _advance_category(self) -> None:
+        self._current_cat_idx += 1
+        self._current_q_idx = 0

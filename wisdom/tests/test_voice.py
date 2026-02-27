@@ -4,7 +4,8 @@ import pytest
 
 from wisdom.voice.language_detect import LanguageDetector
 from wisdom.voice.prompt_templates import PromptTemplates, GREETINGS
-from wisdom.voice.tone_adapter import ToneAdapter
+from wisdom.voice.tone_adapter import ToneAdapter, ToneAnalysis
+from wisdom.voice.chat_engine import ChatEngine
 from wisdom.brain.user_profile import UserProfile
 from wisdom.brain.memory_manager import Message
 
@@ -65,6 +66,14 @@ class TestPromptTemplates:
         code = PromptTemplates.build_system_prompt(mode="code_helper")
         assert "CODE" in code
 
+    def test_get_mode_prompt(self):
+        mp = PromptTemplates.get_mode_prompt("teacher")
+        assert "TEACHER" in mp
+
+    def test_get_complexity_adapter(self):
+        assert "beginner" in PromptTemplates.get_complexity_adapter(2.0).lower()
+        assert "technical" in PromptTemplates.get_complexity_adapter(8.0).lower()
+
 
 class TestToneAdapter:
     def setup_method(self):
@@ -97,3 +106,46 @@ class TestToneAdapter:
         profile = UserProfile(id="test", skill_level=8.0)
         result = self.adapter.get_adaptation(profile, [])
         assert result["complexity_level"] == "advanced"
+
+    def test_analyze_user_message(self):
+        analysis = self.adapter.analyze_user_message("Hello, how are you?")
+        assert isinstance(analysis, ToneAnalysis)
+        assert analysis.emotional_state in ["engaged", "confused", "excited", "frustrated", "bored"]
+        assert analysis.formality in ["casual", "formal", "neutral"]
+
+    def test_get_adapted_prompt(self):
+        analysis = ToneAnalysis(
+            estimated_level=2.0,
+            emotional_state="confused",
+            formality="casual",
+            complexity_level="basic",
+        )
+        adapted = self.adapter.get_adapted_prompt("Tell me about AI", self.profile, analysis)
+        assert "simple" in adapted.lower() or "Adaptation" in adapted
+
+    def test_detect_frustration(self):
+        history = [
+            Message(role="user", content="This doesn't work", timestamp=""),
+            Message(role="user", content="ugh stupid", timestamp=""),
+        ]
+        result = self.adapter.get_adaptation(self.profile, history)
+        assert result["tone"] == "frustrated"
+
+
+class TestChatEngine:
+    def test_valid_modes(self):
+        assert "teacher" in ChatEngine.VALID_MODES
+        assert "free_chat" in ChatEngine.VALID_MODES
+        assert "code_helper" in ChatEngine.VALID_MODES
+
+    def test_set_invalid_mode_raises(self):
+        from unittest.mock import MagicMock
+        engine = ChatEngine(MagicMock())
+        with pytest.raises(ValueError):
+            engine.set_mode("invalid_mode")
+
+    def test_set_and_get_mode(self):
+        from unittest.mock import MagicMock
+        engine = ChatEngine(MagicMock())
+        engine.set_mode("teacher")
+        assert engine.get_mode() == "teacher"

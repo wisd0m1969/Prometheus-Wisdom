@@ -7,6 +7,8 @@ for the 6.8 billion people who have never interacted with AI.
 
 Usage:
     from wisdom import Wisdom
+    # or
+    from wisdom import WISDOM
 
     w = Wisdom()
     response = w.chat("Hello!")
@@ -15,7 +17,7 @@ Usage:
 __version__ = "1.0.0"
 __author__ = "Project PROMETHEUS"
 
-__all__ = ["Wisdom"]
+__all__ = ["Wisdom", "WISDOM"]
 
 
 class Wisdom:
@@ -66,6 +68,15 @@ class Wisdom:
         uid = user_id or self.user_id or "default"
         return self.orchestrator.process_message(uid, message)
 
+    def chat_stream(self, message: str, user_id: str | None = None):
+        """Send a message and get a streaming response.
+
+        Yields:
+            Response text chunks.
+        """
+        uid = user_id or self.user_id or "default"
+        yield from self.orchestrator.process_message_stream(uid, message)
+
     def health_check(self) -> dict:
         """Check the health of all WISDOM subsystems."""
         return {
@@ -73,3 +84,17 @@ class Wisdom:
             "version": __version__,
             "llm": self.llm_provider.health_check(),
         }
+
+    def export_user_data(self, user_id: str | None = None) -> dict:
+        """Export all data for a user (GDPR compliance)."""
+        uid = user_id or self.user_id or "default"
+        return self.orchestrator.export_user_data(uid)
+
+    def delete_user_data(self, user_id: str | None = None) -> bool:
+        """Delete all data for a user (right to be forgotten)."""
+        uid = user_id or self.user_id or "default"
+        return self.orchestrator.delete_user_data(uid)
+
+
+# Alias for convenience
+WISDOM = Wisdom

@@ -3,12 +3,15 @@
 __all__ = [
     "APP_NAME",
     "APP_VERSION",
+    "APP_TAGLINE",
     "SUPPORTED_LANGUAGES",
     "DEFAULT_OLLAMA_MODEL",
     "DEFAULT_GEMINI_MODEL",
     "DEFAULT_EMBED_MODEL",
     "SKILL_CATEGORIES",
+    "SKILL_LEVELS",
     "LEARNING_LEVELS",
+    "BADGES",
 ]
 
 APP_NAME = "PROMETHEUS WISDOM"
@@ -44,6 +47,21 @@ SKILL_CATEGORIES = {
     "domain_knowledge": {"weight": 0.10, "label": "Domain Knowledge"},
 }
 
+# Skill level descriptions (0-10)
+SKILL_LEVELS = {
+    0: "No AI experience at all",
+    1: "Heard of AI but never used it",
+    2: "Tried AI once or twice",
+    3: "Basic chatbot user",
+    4: "Comfortable with AI chat",
+    5: "Understands prompting basics",
+    6: "Can use AI for daily tasks",
+    7: "Understands how AI works",
+    8: "Can code with AI assistance",
+    9: "Builds AI-powered apps",
+    10: "Creates and deploys AI tools",
+}
+
 # Learning path levels
 LEARNING_LEVELS = {
     1: {"name": "Hello AI", "description": "What is AI? First conversation."},
@@ -57,15 +75,15 @@ LEARNING_LEVELS = {
 
 # Achievement badges
 BADGES = {
-    "first_contact": {"name": "First Contact", "trigger": "Complete first conversation"},
-    "polyglot": {"name": "Polyglot", "trigger": "Use WISDOM in 2+ languages"},
-    "curious_mind": {"name": "Curious Mind", "trigger": "Ask 50 questions"},
-    "level_up": {"name": "Level Up", "trigger": "Complete any learning module"},
-    "perfect_score": {"name": "Perfect Score", "trigger": "Get 100% on a quiz"},
-    "streak_master": {"name": "Streak Master", "trigger": "Use WISDOM 7 days in a row"},
-    "code_rookie": {"name": "Code Rookie", "trigger": "Write first code with WISDOM"},
-    "builder": {"name": "Builder", "trigger": "Complete Level 6 project"},
-    "creator": {"name": "Creator", "trigger": "Complete Level 7 project"},
-    "helper": {"name": "Helper", "trigger": "Contribute to community knowledge"},
-    "pioneer": {"name": "Pioneer", "trigger": "Be among first 1000 users"},
+    "first_contact": {"name": "First Contact", "icon": "🤝", "trigger": "Complete first conversation"},
+    "polyglot": {"name": "Polyglot", "icon": "🌍", "trigger": "Use WISDOM in 2+ languages"},
+    "curious_mind": {"name": "Curious Mind", "icon": "💡", "trigger": "Ask 50 questions"},
+    "level_up": {"name": "Level Up", "icon": "⬆️", "trigger": "Complete any learning module"},
+    "perfect_score": {"name": "Perfect Score", "icon": "⭐", "trigger": "Get 100% on a quiz"},
+    "streak_master": {"name": "Streak Master", "icon": "🔥", "trigger": "Use WISDOM 7 days in a row"},
+    "code_rookie": {"name": "Code Rookie", "icon": "💻", "trigger": "Write first code with WISDOM"},
+    "builder": {"name": "Builder", "icon": "🔨", "trigger": "Complete Level 6 project"},
+    "creator": {"name": "Creator", "icon": "🚀", "trigger": "Complete Level 7 project"},
+    "helper": {"name": "Helper", "icon": "❤️", "trigger": "Contribute to community knowledge"},
+    "pioneer": {"name": "Pioneer", "icon": "🏁", "trigger": "Be among first 1000 users"},
 }

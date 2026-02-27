@@ -21,6 +21,11 @@ class TestUserProfileManager:
         assert profile.language == "en"
         assert profile.skill_level == 0.0
 
+    def test_create_profile_with_params(self):
+        profile = self.manager.create("user_named", name="Test", language="th")
+        assert profile.name == "Test"
+        assert profile.language == "th"
+
     def test_get_profile(self):
         self.manager.create("user2")
         profile = self.manager.get("user2")
@@ -60,6 +65,12 @@ class TestUserProfileManager:
         assert json_str is not None
         assert '"user6"' in json_str
 
+    def test_list_users(self):
+        self.manager.create("user_a")
+        self.manager.create("user_b")
+        users = self.manager.list_users()
+        assert len(users) >= 2
+
 
 class TestMemoryManager:
     def setup_method(self):
@@ -93,6 +104,13 @@ class TestMemoryManager:
     def test_empty_history(self):
         assert self.memory.get_history("unknown") == []
         assert self.memory.get_context_string("unknown") == ""
+
+    def test_get_history_text(self):
+        self.memory.add_message("u5", "user", "Hi there")
+        self.memory.add_message("u5", "wisdom", "Hello!")
+        text = self.memory.get_history_text("u5")
+        assert "Hi there" in text
+        assert "Hello!" in text
 
 
 class TestKnowledgeGraph:
