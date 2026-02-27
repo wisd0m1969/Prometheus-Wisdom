@@ -223,3 +223,33 @@ class TestFeedbackLoop:
     def test_submit_with_category(self):
         fb_id = self.fb.submit(4, "UI is nice", category="ui")
         assert fb_id > 0
+
+
+class TestFederatedCommunityWiring:
+    """Tests for federated learning and community knowledge integration."""
+
+    def test_federated_records_confusion(self):
+        fc = FederatedCore()
+        fc.opt_in("user1")
+        fc.record_confusion("machine_learning")
+        metrics = fc.collect_local_metrics()
+        assert metrics["confusion_count"] == 1
+
+    def test_community_search_used_as_context(self):
+        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        ck = CommunityKnowledge(tmp.name)
+        ck.submit("What is deep learning?", "Deep learning uses neural networks", "en", "ai_basics")
+        results = ck.search("deep learning", "en", limit=3)
+        assert len(results) >= 1
+        # This simulates what _retrieve_context does
+        qa_text = "\n".join(f"Q: {qa['question']} A: {qa['answer']}" for qa in results)
+        assert "neural networks" in qa_text
+
+    def test_federated_topic_interaction(self):
+        fc = FederatedCore()
+        fc.opt_in("user1")
+        fc.record_topic_interaction("python_basics", 7.5)
+        fc.record_topic_interaction("python_basics", 8.5)
+        metrics = fc.collect_local_metrics()
+        assert metrics["topic_counts"]["python_basics"] == 2
+        assert metrics["avg_scores"]["python_basics"] == 8.0

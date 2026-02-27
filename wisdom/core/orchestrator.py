@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from wisdom.brain.memory_manager import MemoryManager
     from wisdom.brain.user_profile import UserProfileManager
     from wisdom.core.llm_provider import LLMProvider
+    from wisdom.heart.community_knowledge import CommunityKnowledge
+    from wisdom.heart.federated_core import FederatedCore
     from wisdom.heart.privacy_manager import PrivacyManager
     from wisdom.voice.language_detect import LanguageDetector
     from wisdom.voice.tone_adapter import ToneAdapter
@@ -51,6 +53,8 @@ class Orchestrator:
         tone_adapter: ToneAdapter,
         privacy_manager: PrivacyManager,
         knowledge_graph: KnowledgeGraph | None = None,
+        federated: FederatedCore | None = None,
+        community: CommunityKnowledge | None = None,
     ) -> None:
         self.llm_provider = llm_provider
         self.memory = memory
@@ -59,6 +63,8 @@ class Orchestrator:
         self.tone_adapter = tone_adapter
         self.privacy_manager = privacy_manager
         self.knowledge_graph = knowledge_graph
+        self.federated = federated
+        self.community = community
         self._current_mode: str = "free_chat"
 
         # Lazy-loaded modules
@@ -99,13 +105,14 @@ class Orchestrator:
             self._learning_progress = LearningProgressTracker(config.db_path)
         return self._learning_progress
 
-    def _retrieve_context(self, user_id: str, message: str) -> str:
-        """Retrieve relevant context from ChromaDB and KnowledgeGraph (RAG pipeline).
+    def _retrieve_context(self, user_id: str, message: str, language: str = "en") -> str:
+        """Retrieve relevant context from ChromaDB, KnowledgeGraph, and Community (RAG pipeline).
 
         Steps:
         1. Search ChromaDB for relevant past conversations/facts
         2. Query KnowledgeGraph for user's learned topics
-        3. Combine into a context string for prompt injection
+        3. Search Community Knowledge for relevant Q&A pairs
+        4. Combine into a context string for prompt injection
         """
         context_parts = []
 
@@ -121,6 +128,19 @@ class Orchestrator:
                 if topics:
                     topic_names = [t.get("name", t.get("id", "")) for t in topics[:10]]
                     context_parts.append("User has learned about: " + ", ".join(topic_names))
+            except Exception:
+                pass
+
+        # Community Knowledge — relevant Q&A pairs from community
+        if self.community:
+            try:
+                qa_results = self.community.search(message, language=language, limit=3)
+                if qa_results:
+                    qa_text = "\n".join(
+                        f"- Q: {qa['question']}\n  A: {qa['answer']}"
+                        for qa in qa_results
+                    )
+                    context_parts.append("Community knowledge:\n" + qa_text)
             except Exception:
                 pass
 
@@ -218,9 +238,9 @@ class Orchestrator:
             profile.language = language
             self.profile_manager.update(profile)
 
-        # Step 4: Context retrieval (memory + ChromaDB + KnowledgeGraph)
+        # Step 4: Context retrieval (memory + ChromaDB + KnowledgeGraph + Community)
         history = self.memory.get_history(user_id)
-        retrieved_context = self._retrieve_context(user_id, message)
+        retrieved_context = self._retrieve_context(user_id, message, language=language)
 
         # Step 5: Adaptation analysis
         adaptation = self.adaptation_engine.adapt(profile, message, history)
@@ -251,15 +271,27 @@ class Orchestrator:
         self.memory.add_message(user_id, role="wisdom", content=response, language=language)
 
         # Step 12: Knowledge graph update — record topic interaction
+        topic_key = ""
         if self.knowledge_graph:
             try:
-                # Extract simple topic from first few words
                 topic_words = message.split()[:5]
                 topic_key = "_".join(w.lower() for w in topic_words if len(w) > 2)[:50]
                 if topic_key:
                     self.knowledge_graph.add_node(user_id, "User", {"name": profile.name})
                     self.knowledge_graph.add_node(topic_key, "Topic", {"name": " ".join(topic_words)})
                     self.knowledge_graph.add_relationship(user_id, topic_key, "LEARNED")
+            except Exception:
+                pass
+
+        # Step 12b: Federated learning — record topic interaction (opt-in)
+        if self.federated and self.federated.is_opted_in(user_id):
+            try:
+                if topic_key:
+                    self.federated.record_topic_interaction(topic_key)
+                # Detect confusion from user messages
+                confusion_words = {"confused", "don't understand", "what do you mean", "ไม่เข้าใจ", "งง"}
+                if any(w in message.lower() for w in confusion_words):
+                    self.federated.record_confusion(topic_key or "general")
             except Exception:
                 pass
 
@@ -279,7 +311,7 @@ class Orchestrator:
             self.profile_manager.update(profile)
 
         history = self.memory.get_history(user_id)
-        retrieved_context = self._retrieve_context(user_id, message)
+        retrieved_context = self._retrieve_context(user_id, message, language=language)
         adaptation = self.adaptation_engine.adapt(profile, message, history)
         self._current_mode = adaptation.recommended_mode
         self.chat_engine.set_mode(self._current_mode)
@@ -306,6 +338,7 @@ class Orchestrator:
         self.memory.add_message(user_id, role="wisdom", content=full_response, language=language)
 
         # Step 12: Knowledge graph update
+        topic_key = ""
         if self.knowledge_graph:
             try:
                 topic_words = message.split()[:5]
@@ -314,6 +347,17 @@ class Orchestrator:
                     self.knowledge_graph.add_node(user_id, "User", {"name": profile.name})
                     self.knowledge_graph.add_node(topic_key, "Topic", {"name": " ".join(topic_words)})
                     self.knowledge_graph.add_relationship(user_id, topic_key, "LEARNED")
+            except Exception:
+                pass
+
+        # Step 12b: Federated learning — record topic interaction (opt-in)
+        if self.federated and self.federated.is_opted_in(user_id):
+            try:
+                if topic_key:
+                    self.federated.record_topic_interaction(topic_key)
+                confusion_words = {"confused", "don't understand", "what do you mean", "ไม่เข้าใจ", "งง"}
+                if any(w in message.lower() for w in confusion_words):
+                    self.federated.record_confusion(topic_key or "general")
             except Exception:
                 pass
 

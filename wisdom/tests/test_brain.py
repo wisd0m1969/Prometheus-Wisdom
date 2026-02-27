@@ -1,13 +1,15 @@
-"""Tests for WISDOM Brain module — profiles, memory, knowledge graph."""
+"""Tests for WISDOM Brain module — profiles, memory, knowledge graph, embeddings."""
 
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from wisdom.brain.user_profile import UserProfileManager, UserProfile
 from wisdom.brain.memory_manager import MemoryManager
 from wisdom.brain.knowledge_graph import KnowledgeGraph
+from wisdom.brain.embeddings import EmbeddingManager, WisdomEmbeddingFunction
 
 
 class TestUserProfileManager:
@@ -164,3 +166,65 @@ class TestKnowledgeGraph:
         self.kg.add_relationship("u1", "t1", "LEARNED", {"score": 7})
         topics = self.kg.get_user_topics("u1")
         assert len(topics) == 1
+
+
+class TestEmbeddingManager:
+    def test_init(self):
+        mock_provider = MagicMock()
+        em = EmbeddingManager(mock_provider)
+        assert em.llm_provider is mock_provider
+
+    def test_as_chroma_function(self):
+        mock_provider = MagicMock()
+        em = EmbeddingManager(mock_provider)
+        fn = em.as_chroma_function()
+        assert isinstance(fn, WisdomEmbeddingFunction)
+
+    def test_chroma_function_callable(self):
+        mock_provider = MagicMock()
+        mock_embed = MagicMock()
+        mock_embed.embed_documents.return_value = [[0.1, 0.2], [0.3, 0.4]]
+        mock_provider.get_embeddings.return_value = mock_embed
+
+        em = EmbeddingManager(mock_provider)
+        fn = em.as_chroma_function()
+        result = fn(["hello", "world"])
+        assert len(result) == 2
+
+    def test_similarity(self):
+        mock_provider = MagicMock()
+        mock_embed = MagicMock()
+        mock_embed.embed_query.side_effect = [[1.0, 0.0], [1.0, 0.0]]
+        mock_provider.get_embeddings.return_value = mock_embed
+
+        em = EmbeddingManager(mock_provider)
+        sim = em.similarity("a", "b")
+        assert sim == 1.0
+
+    def test_chroma_function_handles_error(self):
+        mock_provider = MagicMock()
+        mock_embed = MagicMock()
+        mock_embed.embed_documents.side_effect = RuntimeError("fail")
+        mock_provider.get_embeddings.return_value = mock_embed
+
+        em = EmbeddingManager(mock_provider)
+        fn = em.as_chroma_function()
+        result = fn(["hello"])
+        assert result == [[]]
+
+
+class TestMemoryManagerEmbedding:
+    def setup_method(self):
+        self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.memory = MemoryManager(max_messages=5, db_path=self.tmp.name)
+
+    def test_set_embedding_function(self):
+        mock_fn = MagicMock()
+        self.memory.set_embedding_function(mock_fn)
+        assert self.memory._embedding_function is mock_fn
+
+    def test_set_embedding_clears_collections(self):
+        self.memory._collections["test"] = "cached"
+        mock_fn = MagicMock()
+        self.memory.set_embedding_function(mock_fn)
+        assert len(self.memory._collections) == 0

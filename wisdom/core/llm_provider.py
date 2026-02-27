@@ -145,6 +145,10 @@ class LLMProvider:
         """True if currently using Ollama (local), False if cloud."""
         return self._provider_name == "ollama"
 
+    def is_offline(self) -> bool:
+        """True if no LLM provider is available (offline mode)."""
+        return self._provider_name == "none"
+
     def invalidate_cache(self) -> None:
         """Force re-detection of provider on next call."""
         self._ollama_available = None

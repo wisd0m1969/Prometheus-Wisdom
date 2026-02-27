@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from wisdom.core.llm_provider import LLMProvider
 
-__all__ = ["EmbeddingManager"]
+__all__ = ["EmbeddingManager", "WisdomEmbeddingFunction"]
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,10 @@ class EmbeddingManager:
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return dot / (norm_a * norm_b)
+
+    def as_chroma_function(self) -> "WisdomEmbeddingFunction":
+        """Return a ChromaDB-compatible embedding function wrapping this manager."""
+        return WisdomEmbeddingFunction(self)
 
     # ─── ChromaDB Collection Management ───────────────────────
 
@@ -104,3 +108,22 @@ class EmbeddingManager:
         if where:
             kwargs["where"] = where
         return collection.query(**kwargs)
+
+
+class WisdomEmbeddingFunction:
+    """ChromaDB-compatible embedding function using WISDOM's EmbeddingManager.
+
+    Wraps nomic-embed-text (Ollama) or Gemini text-embedding-004 so ChromaDB
+    uses our preferred embedding model instead of the default all-MiniLM-L6-v2.
+    """
+
+    def __init__(self, embedding_manager: EmbeddingManager) -> None:
+        self._manager = embedding_manager
+
+    def __call__(self, input: list[str]) -> list[list[float]]:
+        """Generate embeddings for a list of texts (ChromaDB interface)."""
+        try:
+            return self._manager.embed_batch(input)
+        except Exception:
+            logger.warning("Custom embedding failed, returning empty vectors")
+            return [[] for _ in input]

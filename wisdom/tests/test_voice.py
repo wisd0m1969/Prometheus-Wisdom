@@ -6,6 +6,7 @@ from wisdom.voice.language_detect import LanguageDetector
 from wisdom.voice.prompt_templates import PromptTemplates, GREETINGS
 from wisdom.voice.tone_adapter import ToneAdapter, ToneAnalysis
 from wisdom.voice.chat_engine import ChatEngine
+from wisdom.body.components.chat import _SPEECH_LANG_MAP
 from wisdom.brain.user_profile import UserProfile
 from wisdom.brain.memory_manager import Message
 
@@ -149,3 +150,16 @@ class TestChatEngine:
         engine = ChatEngine(MagicMock())
         engine.set_mode("teacher")
         assert engine.get_mode() == "teacher"
+
+
+class TestVoiceInput:
+    def test_speech_lang_map_covers_all_languages(self):
+        expected = {"en", "th", "hi", "es", "zh", "ar", "pt", "sw", "id", "fr"}
+        assert expected == set(_SPEECH_LANG_MAP.keys())
+
+    def test_speech_lang_map_format(self):
+        for code, speech_code in _SPEECH_LANG_MAP.items():
+            # All speech codes should be in xx-XX format
+            assert "-" in speech_code
+            parts = speech_code.split("-")
+            assert len(parts) == 2

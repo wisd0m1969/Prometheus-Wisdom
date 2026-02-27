@@ -1,19 +1,114 @@
-"""Chat UI component — message bubbles, streaming, and onboarding flow.
+"""Chat UI component — message bubbles, streaming, voice input, and onboarding flow.
 
 Provides polished onboarding with multilingual greetings,
-real-time streaming responses, and mode-aware chat display.
+real-time streaming responses, voice input via Web Speech API,
+and mode-aware chat display.
 """
 
 from __future__ import annotations
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from wisdom.core.constants import SUPPORTED_LANGUAGES
 from wisdom.voice.prompt_templates import PromptTemplates
 
 
+# Web Speech API JavaScript component for voice input
+_VOICE_INPUT_HTML = """
+<div id="voice-container" style="display:inline-block;">
+    <button id="voice-btn" onclick="toggleVoice()" style="
+        background: #ff4b4b; color: white; border: none; border-radius: 50%;
+        width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.3s;">
+        🎤
+    </button>
+    <span id="voice-status" style="margin-left:8px; font-size:12px; color:#666;"></span>
+</div>
+<script>
+let recognition = null;
+let isListening = false;
+
+function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        document.getElementById('voice-status').textContent = 'Speech recognition not supported in this browser';
+        return;
+    }
+
+    if (isListening) {
+        recognition.stop();
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = '%LANG%';
+
+    recognition.onstart = function() {
+        isListening = true;
+        document.getElementById('voice-btn').style.background = '#ff0000';
+        document.getElementById('voice-btn').style.animation = 'pulse 1s infinite';
+        document.getElementById('voice-status').textContent = 'Listening...';
+    };
+
+    recognition.onresult = function(event) {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        if (event.results[event.results.length - 1].isFinal) {
+            // Send transcript to Streamlit via query params
+            window.parent.postMessage({type: 'voice_input', text: transcript}, '*');
+            document.getElementById('voice-status').textContent = 'Heard: ' + transcript;
+        } else {
+            document.getElementById('voice-status').textContent = transcript + '...';
+        }
+    };
+
+    recognition.onerror = function(event) {
+        document.getElementById('voice-status').textContent = 'Error: ' + event.error;
+        isListening = false;
+        document.getElementById('voice-btn').style.background = '#ff4b4b';
+        document.getElementById('voice-btn').style.animation = '';
+    };
+
+    recognition.onend = function() {
+        isListening = false;
+        document.getElementById('voice-btn').style.background = '#ff4b4b';
+        document.getElementById('voice-btn').style.animation = '';
+    };
+
+    recognition.start();
+}
+</script>
+<style>
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+</style>
+"""
+
+# Language code mapping for Web Speech API
+_SPEECH_LANG_MAP = {
+    "en": "en-US", "th": "th-TH", "hi": "hi-IN", "es": "es-ES",
+    "zh": "zh-CN", "ar": "ar-SA", "pt": "pt-BR", "sw": "sw-KE",
+    "id": "id-ID", "fr": "fr-FR",
+}
+
+
+def _render_voice_input(language: str = "en") -> None:
+    """Render the voice input button using Web Speech API."""
+    speech_lang = _SPEECH_LANG_MAP.get(language, "en-US")
+    html = _VOICE_INPUT_HTML.replace("%LANG%", speech_lang)
+    components.html(html, height=50)
+
+
 def render_chat() -> None:
-    """Render the main chat interface with streaming support."""
+    """Render the main chat interface with streaming and voice input support."""
     mode = st.session_state.chat_engine.get_mode()
     mode_labels = {
         "free_chat": "💬 Free Chat",
@@ -24,6 +119,10 @@ def render_chat() -> None:
     }
     st.header(mode_labels.get(mode, "💬 Chat with WISDOM"))
 
+    # Voice input button
+    profile = st.session_state.profile_manager.get_or_create(st.session_state.user_id)
+    _render_voice_input(profile.language)
+
     # Display message history
     for msg in st.session_state.messages:
         role = msg["role"]
@@ -31,7 +130,7 @@ def render_chat() -> None:
             st.markdown(msg["content"])
 
     # Chat input
-    if prompt := st.chat_input("Type your message here..."):
+    if prompt := st.chat_input("Type your message here (or use 🎤 voice input)..."):
         # Show user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):

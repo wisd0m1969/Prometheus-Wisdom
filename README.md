@@ -6,7 +6,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-135%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -279,14 +279,20 @@ Prometheus-Wisdom/
 │   │   ├── app.py               # Streamlit web application
 │   │   ├── api.py               # FastAPI REST API
 │   │   └── components/
-│   │       ├── chat.py          # Chat UI with streaming
-│   │       └── dashboard.py     # Progress dashboard
-│   └── tests/                   # 120 unit tests
+│   │       ├── chat.py          # Chat UI with streaming + voice input
+│   │       ├── dashboard.py     # Progress dashboard
+│   │       ├── code_playground.py # In-browser Python code editor
+│   │       └── community.py     # Community Q&A browser
+│   ├── plugins/                 # Plugin system
+│   │   ├── __init__.py          # Plugin interface + PluginManager
+│   │   └── example_plugin.py   # Example plugin
+│   └── tests/                   # 171 unit tests
 │       ├── test_brain.py
 │       ├── test_voice.py
 │       ├── test_heart.py
 │       ├── test_soul.py
-│       └── test_body.py
+│       ├── test_body.py
+│       └── test_plugins.py
 ├── WISDOM_DOCS/                 # Architecture & design docs
 ├── Procfile                     # Deployment config
 ├── Makefile                     # Dev commands
@@ -304,15 +310,16 @@ Prometheus-Wisdom/
 make test
 ```
 
-135 tests across all modules:
+171 tests across all modules:
 
 | Module | Tests | Covers |
 |--------|-------|--------|
-| Brain | 21 | Profiles, memory, knowledge graph, SQLite persistence |
-| Voice | 27 | Language detection, prompts, tone, chat engine |
-| Heart | 21 | Privacy, federated learning, community, feedback |
-| Soul | 39 | Adaptation, assessment, learning, goals, badges, progress tracking |
-| Body | 13 | API endpoints, profiles, feedback, learning, export |
+| Brain | 29 | Profiles, memory, knowledge graph, embeddings, SQLite persistence |
+| Voice | 26 | Language detection, prompts, tone, chat engine, voice input |
+| Heart | 36 | Privacy, federated learning, community wiring, feedback |
+| Soul | 43 | Adaptation, assessment, learning, goals, badges, progress tracking |
+| Body | 20 | API endpoints, profiles, feedback, learning, export, code playground, offline mode |
+| Plugins | 17 | Plugin system, hooks, discovery, enable/disable |
 
 ---
 

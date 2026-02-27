@@ -45,6 +45,7 @@ class MemoryManager:
         self._chroma_client = None
         self._collections: dict[str, object] = {}
         self._session_summaries: dict[str, str] = {}
+        self._embedding_function = None
         self._init_db()
 
     def _init_db(self) -> None:
@@ -239,15 +240,27 @@ class MemoryManager:
         except Exception:
             logger.warning("ChromaDB unavailable — long-term memory disabled")
 
+    def set_embedding_function(self, embed_fn) -> None:
+        """Set a custom embedding function for ChromaDB collections.
+
+        Args:
+            embed_fn: A ChromaDB-compatible embedding function, or any callable
+                      that wraps EmbeddingManager for nomic-embed-text / Gemini.
+        """
+        self._embedding_function = embed_fn
+        # Clear cached collections so they get recreated with the new function
+        self._collections.clear()
+        logger.info("Custom embedding function set for MemoryManager")
+
     def get_or_create_collection(self, name: str = "wisdom_memory") -> object | None:
         """Get or create a ChromaDB collection."""
         if not self._chroma_client:
             return None
         if name not in self._collections:
-            self._collections[name] = self._chroma_client.get_or_create_collection(
-                name=name,
-                metadata={"description": f"WISDOM {name}"},
-            )
+            kwargs = {"name": name, "metadata": {"description": f"WISDOM {name}"}}
+            if hasattr(self, "_embedding_function") and self._embedding_function:
+                kwargs["embedding_function"] = self._embedding_function
+            self._collections[name] = self._chroma_client.get_or_create_collection(**kwargs)
         return self._collections[name]
 
     def store_long_term(

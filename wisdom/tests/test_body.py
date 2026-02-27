@@ -1,4 +1,4 @@
-"""Tests for WISDOM Body module — API endpoints."""
+"""Tests for WISDOM Body module — API endpoints, code playground."""
 
 import os
 import uuid
@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 import wisdom.body.api as api_module
 from wisdom.body.api import app
+from wisdom.body.components.code_playground import _safe_exec
 
 
 def _llm_available() -> bool:
@@ -176,3 +177,46 @@ class TestLearningEndpoints:
         data = response.json()
         assert "modules" in data
         assert "next_lesson" in data
+
+
+class TestOfflineMode:
+    def test_llm_provider_is_offline(self):
+        from unittest.mock import MagicMock
+        from wisdom.core.llm_provider import LLMProvider
+        config = MagicMock()
+        config.ollama_base_url = "http://localhost:99999"
+        config.has_gemini = False
+        config.google_api_key = ""
+        config.ollama_model = "test"
+        provider = LLMProvider(config)
+        assert provider.is_offline()
+        assert not provider.is_local()
+
+
+class TestCodePlayground:
+    def test_safe_exec_print(self):
+        stdout, stderr = _safe_exec('print("hello")')
+        assert "hello" in stdout
+        assert stderr == ""
+
+    def test_safe_exec_loop(self):
+        stdout, stderr = _safe_exec("for i in range(3): print(i)")
+        assert "0" in stdout
+        assert "2" in stdout
+
+    def test_safe_exec_error(self):
+        stdout, stderr = _safe_exec("1/0")
+        assert "ZeroDivisionError" in stderr
+
+    def test_safe_exec_no_import(self):
+        stdout, stderr = _safe_exec("import os")
+        assert "NameError" in stderr or "ImportError" in stderr or stderr != ""
+
+    def test_safe_exec_list_comprehension(self):
+        stdout, stderr = _safe_exec("print([x**2 for x in range(5)])")
+        assert "[0, 1, 4, 9, 16]" in stdout
+
+    def test_safe_exec_function(self):
+        code = "def add(a, b): return a + b\nprint(add(2, 3))"
+        stdout, stderr = _safe_exec(code)
+        assert "5" in stdout

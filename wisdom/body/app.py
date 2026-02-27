@@ -17,6 +17,8 @@ from wisdom.voice.language_detect import LanguageDetector
 from wisdom.voice.tone_adapter import ToneAdapter
 from wisdom.voice.chat_engine import ChatEngine
 from wisdom.heart.privacy_manager import PrivacyManager
+from wisdom.heart.federated_core import FederatedCore
+from wisdom.heart.community_knowledge import CommunityKnowledge
 from wisdom.soul.adaptation_engine import AdaptationEngine
 from wisdom.body.components.chat import render_chat, render_onboarding
 from wisdom.body.components.dashboard import render_dashboard
@@ -38,6 +40,10 @@ def init_session_state() -> None:
         st.session_state.tone_adapter = ToneAdapter()
     if "privacy_manager" not in st.session_state:
         st.session_state.privacy_manager = PrivacyManager()
+    if "federated" not in st.session_state:
+        st.session_state.federated = FederatedCore()
+    if "community" not in st.session_state:
+        st.session_state.community = CommunityKnowledge(st.session_state.config.db_path)
     if "chat_engine" not in st.session_state:
         st.session_state.chat_engine = ChatEngine(st.session_state.llm_provider)
     if "adaptation_engine" not in st.session_state:
@@ -83,6 +89,10 @@ def render_sidebar() -> None:
             st.session_state.page = "dashboard"
         if st.button("🎯 Goals", use_container_width=True):
             st.session_state.page = "goals"
+        if st.button("💻 Code Playground", use_container_width=True):
+            st.session_state.page = "code_playground"
+        if st.button("🌍 Community Q&A", use_container_width=True):
+            st.session_state.page = "community"
 
         st.divider()
 
@@ -121,20 +131,45 @@ def render_sidebar() -> None:
             )
             st.session_state.chat_engine.set_mode(mode)
 
+            st.divider()
+
+            # Federated learning opt-in
+            user_id = st.session_state.user_id
+            fed = st.session_state.federated
+            is_opted = fed.is_opted_in(user_id)
+            federated_toggle = st.toggle(
+                "Community Learning",
+                value=is_opted,
+                help="Share anonymized learning patterns to help improve WISDOM for everyone. "
+                     "No personal data is ever shared.",
+            )
+            if federated_toggle and not is_opted:
+                fed.opt_in(user_id)
+            elif not federated_toggle and is_opted:
+                fed.opt_out(user_id)
+
+            if federated_toggle:
+                preview = fed.preview_shared_data()
+                if preview:
+                    st.caption(f"Interactions shared: {preview.get('confusion_count', 0)} confusion points")
+
         st.divider()
 
-        # LLM status
+        # LLM status with offline mode indicator
         health = st.session_state.llm_provider.health_check()
         provider = health.get("provider", "none")
         latency = health.get("latency_ms")
-        status_text = f"LLM: {provider}"
-        if health.get("ollama_available"):
-            status_text += " | 🟢 Local"
+        if provider == "none":
+            st.warning("⚡ Offline Mode — No LLM available. Cached content only.")
         else:
-            status_text += " | ☁️ Cloud"
-        if latency:
-            status_text += f" | {latency}ms"
-        st.caption(status_text)
+            status_text = f"LLM: {provider}"
+            if health.get("ollama_available"):
+                status_text += " | 🟢 Local (Private)"
+            else:
+                status_text += " | ☁️ Cloud"
+            if latency:
+                status_text += f" | {latency}ms"
+            st.caption(status_text)
 
         st.divider()
         st.caption("Open Source | MIT License")
@@ -164,6 +199,12 @@ def main() -> None:
     # Route to page
     if st.session_state.page == "dashboard":
         render_dashboard()
+    elif st.session_state.page == "code_playground":
+        from wisdom.body.components.code_playground import render_code_playground
+        render_code_playground()
+    elif st.session_state.page == "community":
+        from wisdom.body.components.community import render_community
+        render_community()
     else:
         render_chat()
 
