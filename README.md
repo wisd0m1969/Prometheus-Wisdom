@@ -6,7 +6,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-120%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-135%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -195,6 +195,8 @@ GET    /api/v1/learning-path/{user_id}  # Personalized learning path
 GET    /api/v1/progress/{user_id}       # Learning progress
 POST   /api/v1/assessment/start         # Start skill assessment
 
+GET    /api/v1/profile/{user_id}/export  # Export all user data (GDPR)
+
 POST   /api/v1/feedback              # Submit feedback (1-5 stars)
 GET    /api/v1/feedback/stats         # Feedback statistics
 
@@ -302,15 +304,15 @@ Prometheus-Wisdom/
 make test
 ```
 
-120 tests across all modules:
+135 tests across all modules:
 
 | Module | Tests | Covers |
 |--------|-------|--------|
-| Brain | 18 | Profiles, memory, knowledge graph |
+| Brain | 21 | Profiles, memory, knowledge graph, SQLite persistence |
 | Voice | 27 | Language detection, prompts, tone, chat engine |
-| Heart | 20 | Privacy, federated learning, community, feedback |
-| Soul | 44 | Adaptation, assessment, learning, goals, badges |
-| Body | 11 | API endpoints, profiles, feedback, learning |
+| Heart | 21 | Privacy, federated learning, community, feedback |
+| Soul | 39 | Adaptation, assessment, learning, goals, badges, progress tracking |
+| Body | 13 | API endpoints, profiles, feedback, learning, export |
 
 ---
 

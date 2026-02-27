@@ -32,6 +32,7 @@ class Wisdom:
         from wisdom.core.llm_provider import LLMProvider
         from wisdom.brain.user_profile import UserProfileManager
         from wisdom.brain.memory_manager import MemoryManager
+        from wisdom.brain.knowledge_graph import KnowledgeGraph
         from wisdom.voice.language_detect import LanguageDetector
         from wisdom.voice.tone_adapter import ToneAdapter
         from wisdom.heart.privacy_manager import PrivacyManager
@@ -40,10 +41,23 @@ class Wisdom:
         self.config = Config()
         self.llm_provider = LLMProvider(self.config)
         self.profile_manager = UserProfileManager(self.config.db_path)
-        self.memory = MemoryManager(max_messages=self.config.max_memory_messages)
+        self.memory = MemoryManager(
+            max_messages=self.config.max_memory_messages,
+            db_path=self.config.db_path,
+        )
+        self.knowledge_graph = KnowledgeGraph(
+            neo4j_uri=self.config.neo4j_uri,
+            neo4j_user=self.config.neo4j_username,
+            neo4j_password=self.config.neo4j_password,
+            sqlite_path=self.config.db_path,
+        )
         self.language_detector = LanguageDetector()
         self.tone_adapter = ToneAdapter()
         self.privacy_manager = PrivacyManager()
+
+        # Initialize ChromaDB for long-term memory (lazy, non-fatal)
+        self.memory.init_vector_store(str(self.config.chroma_path))
+
         self.orchestrator = Orchestrator(
             llm_provider=self.llm_provider,
             memory=self.memory,
@@ -51,6 +65,7 @@ class Wisdom:
             language_detector=self.language_detector,
             tone_adapter=self.tone_adapter,
             privacy_manager=self.privacy_manager,
+            knowledge_graph=self.knowledge_graph,
         )
 
         self.user_id = user_id

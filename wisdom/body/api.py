@@ -321,6 +321,16 @@ def feedback_stats():
     return fb.get_stats()
 
 
+@app.get("/api/v1/profile/{user_id}/export")
+def export_user_data(user_id: str):
+    """Export all user data as JSON (GDPR compliance)."""
+    w = get_wisdom()
+    data = w.export_user_data(user_id)
+    if "error" in data:
+        raise HTTPException(status_code=404, detail=data["error"])
+    return data
+
+
 @app.get("/api/v1/health")
 def health_check():
     """Check WISDOM system health."""

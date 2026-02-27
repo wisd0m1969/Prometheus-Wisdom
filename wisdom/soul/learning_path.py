@@ -2,13 +2,18 @@
 
 Each level has 3-4 lessons with objectives, exercises, and quiz questions.
 Content is personalized to user's language, interests, and pace.
+Includes SQLite-backed learning_progress table for persistence.
 """
 
 from __future__ import annotations
 
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+
 from wisdom.core.constants import LEARNING_LEVELS
 
-__all__ = ["LearningPath"]
+__all__ = ["LearningPath", "LearningProgressTracker"]
 
 # Full module definitions with lessons, objectives, exercises, quizzes
 _MODULES = {
@@ -305,3 +310,90 @@ class LearningPath:
                     ],
                 }
         return path
+
+
+class LearningProgressTracker:
+    """Persists learning progress to SQLite.
+
+    Tracks which modules and lessons each user has started/completed,
+    quiz scores, and timestamps — matching architecture.md §4.2.
+    """
+
+    def __init__(self, db_path: str | Path = "./data/wisdom.db") -> None:
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS learning_progress (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    module_id TEXT NOT NULL,
+                    level INTEGER NOT NULL,
+                    score REAL DEFAULT 0.0,
+                    completed BOOLEAN DEFAULT 0,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    UNIQUE(user_id, module_id)
+                )
+            """)
+
+    def start_lesson(self, user_id: str, lesson_id: str, level: int) -> None:
+        """Mark a lesson as started."""
+        now = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO learning_progress "
+                "(user_id, module_id, level, started_at) VALUES (?, ?, ?, ?)",
+                (user_id, lesson_id, level, now),
+            )
+
+    def complete_lesson(self, user_id: str, lesson_id: str, level: int, score: float = 0.0) -> None:
+        """Mark a lesson as completed with optional score."""
+        now = datetime.now(timezone.utc).isoformat()
+        with sqlite3.connect(str(self.db_path)) as conn:
+            # Upsert: insert or update
+            conn.execute(
+                "INSERT INTO learning_progress (user_id, module_id, level, score, completed, started_at, completed_at) "
+                "VALUES (?, ?, ?, ?, 1, ?, ?) "
+                "ON CONFLICT(user_id, module_id) DO UPDATE SET "
+                "score = excluded.score, completed = 1, completed_at = excluded.completed_at",
+                (user_id, lesson_id, level, score, now, now),
+            )
+
+    def get_completed_lessons(self, user_id: str) -> list[str]:
+        """Get list of completed lesson IDs for a user."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            rows = conn.execute(
+                "SELECT module_id FROM learning_progress WHERE user_id = ? AND completed = 1",
+                (user_id,),
+            ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_progress(self, user_id: str) -> list[dict]:
+        """Get all progress records for a user."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            rows = conn.execute(
+                "SELECT module_id, level, score, completed, started_at, completed_at "
+                "FROM learning_progress WHERE user_id = ? ORDER BY level, module_id",
+                (user_id,),
+            ).fetchall()
+        return [
+            {
+                "module_id": r[0], "level": r[1], "score": r[2],
+                "completed": bool(r[3]), "started_at": r[4], "completed_at": r[5],
+            }
+            for r in rows
+        ]
+
+    def get_level_score(self, user_id: str, level: int) -> float | None:
+        """Get average score for a completed level."""
+        with sqlite3.connect(str(self.db_path)) as conn:
+            row = conn.execute(
+                "SELECT AVG(score) FROM learning_progress "
+                "WHERE user_id = ? AND level = ? AND completed = 1",
+                (user_id, level),
+            ).fetchone()
+        return row[0] if row and row[0] is not None else None

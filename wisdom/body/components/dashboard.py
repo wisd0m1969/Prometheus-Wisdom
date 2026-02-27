@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from wisdom.core.constants import SKILL_CATEGORIES, BADGES, SKILL_LEVELS
-from wisdom.soul.learning_path import LearningPath
+from wisdom.soul.learning_path import LearningPath, LearningProgressTracker
 from wisdom.soul.goal_tracker import GoalTracker
 
 
@@ -63,7 +63,9 @@ def render_dashboard() -> None:
     st.subheader("📚 Learning Progress")
 
     path = LearningPath()
-    progress = path.get_progress([])
+    progress_tracker = LearningProgressTracker(st.session_state.config.db_path)
+    completed_lessons = progress_tracker.get_completed_lessons(st.session_state.user_id)
+    progress = path.get_progress(completed_lessons)
 
     for level in sorted(path.modules.keys()):
         info = progress[level]

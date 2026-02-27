@@ -56,6 +56,7 @@ class ChatEngine:
         history: list[Message] | None = None,
         tone_hints: dict | None = None,
         mode: str | None = None,
+        retrieved_context: str = "",
     ) -> str:
         """Generate a full (non-streaming) response from WISDOM.
 
@@ -65,11 +66,12 @@ class ChatEngine:
             history: Conversation history.
             tone_hints: Adaptation hints from ToneAdapter.
             mode: Override current mode for this message.
+            retrieved_context: RAG-retrieved context from ChromaDB/KG.
 
         Returns:
             WISDOM's response text.
         """
-        messages = self._build_messages(user_message, profile, history, tone_hints, mode)
+        messages = self._build_messages(user_message, profile, history, tone_hints, mode, retrieved_context)
         llm = self.llm_provider.get_llm()
         response = llm.invoke(messages)
         return response.content
@@ -91,12 +93,13 @@ class ChatEngine:
         history: list[Message] | None = None,
         tone_hints: dict | None = None,
         mode: str | None = None,
+        retrieved_context: str = "",
     ) -> Generator[str, None, None]:
         """Generate a streaming response from WISDOM.
 
         Yields response chunks for real-time display.
         """
-        messages = self._build_messages(user_message, profile, history, tone_hints, mode)
+        messages = self._build_messages(user_message, profile, history, tone_hints, mode, retrieved_context)
         llm = self.llm_provider.get_llm()
         for chunk in llm.stream(messages):
             if chunk.content:
@@ -124,19 +127,21 @@ class ChatEngine:
         history: list[Message] | None,
         tone_hints: dict | None,
         mode: str | None = None,
+        retrieved_context: str = "",
     ) -> list:
         """Build the full message list for LLM invocation."""
         from wisdom.voice.prompt_templates import PromptTemplates
 
         active_mode = mode or self._mode
 
-        # Build system prompt
+        # Build system prompt with retrieved context
         system_prompt = PromptTemplates.build_system_prompt(
             user_name=profile.name,
             user_language=profile.language,
             skill_level=profile.skill_level,
             current_goal=profile.goals[0] if profile.goals else "Explore AI",
             mode=active_mode,
+            retrieved_context=retrieved_context or "No prior context.",
         )
 
         # Add tone adaptation instructions

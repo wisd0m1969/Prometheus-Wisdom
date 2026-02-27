@@ -74,7 +74,8 @@ class TestUserProfileManager:
 
 class TestMemoryManager:
     def setup_method(self):
-        self.memory = MemoryManager(max_messages=5)
+        self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.memory = MemoryManager(max_messages=5, db_path=self.tmp.name)
 
     def test_add_and_get_message(self):
         self.memory.add_message("u1", "user", "Hello")
@@ -111,6 +112,33 @@ class TestMemoryManager:
         text = self.memory.get_history_text("u5")
         assert "Hi there" in text
         assert "Hello!" in text
+
+    def test_persist_to_sqlite(self):
+        """Messages are persisted to SQLite conversations table."""
+        self.memory.add_message("persist_user", "user", "Hello SQLite")
+        self.memory.add_message("persist_user", "wisdom", "Hi back")
+        count = self.memory.get_conversation_count("persist_user")
+        assert count == 2
+
+    def test_clear_deletes_from_sqlite(self):
+        """Clearing session removes messages from SQLite too."""
+        self.memory.add_message("clear_user", "user", "test")
+        self.memory.clear_session("clear_user")
+        count = self.memory.get_conversation_count("clear_user")
+        assert count == 0
+
+    def test_session_start_loads_from_sqlite(self):
+        """on_session_start loads recent messages from SQLite into memory."""
+        self.memory.add_message("reload_user", "user", "message 1")
+        self.memory.add_message("reload_user", "wisdom", "reply 1")
+        # Clear in-memory only
+        self.memory._sessions.pop("reload_user", None)
+        assert self.memory.get_history("reload_user") == []
+        # Reload from SQLite
+        self.memory.on_session_start("reload_user")
+        history = self.memory.get_history("reload_user")
+        assert len(history) == 2
+        assert history[0].content == "message 1"
 
 
 class TestKnowledgeGraph:

@@ -137,6 +137,27 @@ class TestFeedbackEndpoint:
         assert "total" in response.json()
 
 
+class TestExportEndpoint:
+    def test_export_user_data(self, client):
+        uid = _unique_id()
+        client.post(
+            "/api/v1/profile",
+            json={"user_id": uid, "name": "ExportTest"},
+        )
+        response = client.get(f"/api/v1/profile/{uid}/export")
+        assert response.status_code == 200
+        data = response.json()
+        assert "profile" in data
+        assert "conversation_count" in data
+        assert "goals" in data
+        assert "badges" in data
+        assert "learning_progress" in data
+
+    def test_export_nonexistent(self, client):
+        response = client.get(f"/api/v1/profile/{_unique_id()}/export")
+        assert response.status_code == 404
+
+
 class TestLearningEndpoints:
     def test_assessment_start(self, client):
         response = client.post("/api/v1/assessment/start")

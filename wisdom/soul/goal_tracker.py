@@ -130,3 +130,44 @@ class GoalTracker:
             for r in rows
             if r[0] in BADGES
         ]
+
+    # ─── Celebration Messages ──────────────────────────────────
+
+    _BADGE_CELEBRATIONS = {
+        "first_contact": "You just had your first AI conversation! Welcome to the future!",
+        "polyglot": "You're speaking to AI in multiple languages — amazing!",
+        "curious_mind": "50 questions asked! Your curiosity is your superpower!",
+        "level_up": "Level complete! You're learning so fast!",
+        "perfect_score": "100% on a quiz — you're a natural!",
+        "streak_master": "7 days in a row! Your dedication is inspiring!",
+        "code_rookie": "You wrote your first code with AI — the sky is the limit!",
+        "builder": "You built an app! You're no longer just a user — you're a creator!",
+        "creator": "You've built your own AI tool! Incredible achievement!",
+        "helper": "You helped the community — thank you for sharing your knowledge!",
+        "pioneer": "You're one of the first 1000 WISDOM users — a true pioneer!",
+    }
+
+    _MILESTONE_CELEBRATIONS = [
+        "Great progress! You're doing amazing!",
+        "One step closer to your goal — keep going!",
+        "Milestone achieved! You should be proud of yourself!",
+        "You're making real progress — don't stop now!",
+    ]
+
+    def get_celebration_message(self, badge_id: str) -> str:
+        """Get a celebration message for a newly earned badge."""
+        return self._BADGE_CELEBRATIONS.get(
+            badge_id,
+            "Congratulations! You earned a new achievement!",
+        )
+
+    def get_milestone_celebration(self, goal_id: int, milestone_index: int) -> str:
+        """Get a celebration message for a completed milestone."""
+        return self._MILESTONE_CELEBRATIONS[milestone_index % len(self._MILESTONE_CELEBRATIONS)]
+
+    def award_badge_with_message(self, user_id: str, badge_id: str) -> tuple[bool, str]:
+        """Award a badge and return (newly_awarded, celebration_message)."""
+        awarded = self.award_badge(user_id, badge_id)
+        if awarded:
+            return True, self.get_celebration_message(badge_id)
+        return False, ""

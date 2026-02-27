@@ -6,7 +6,7 @@ import pytest
 
 from wisdom.soul.adaptation_engine import AdaptationEngine, AdaptationResult
 from wisdom.soul.skill_assessor import SkillAssessor
-from wisdom.soul.learning_path import LearningPath
+from wisdom.soul.learning_path import LearningPath, LearningProgressTracker
 from wisdom.soul.goal_tracker import GoalTracker
 from wisdom.brain.user_profile import UserProfile
 from wisdom.brain.memory_manager import Message
@@ -249,3 +249,60 @@ class TestGoalTracker:
         self.tracker.award_badge("user1", "curious_mind")
         badges = self.tracker.get_badges("user1")
         assert len(badges) == 2
+
+    def test_celebration_message(self):
+        msg = self.tracker.get_celebration_message("first_contact")
+        assert "first AI conversation" in msg.lower() or "welcome" in msg.lower()
+
+    def test_celebration_message_unknown(self):
+        msg = self.tracker.get_celebration_message("unknown_badge")
+        assert "congratulations" in msg.lower()
+
+    def test_milestone_celebration(self):
+        msg = self.tracker.get_milestone_celebration(1, 0)
+        assert len(msg) > 0
+
+    def test_award_badge_with_message(self):
+        awarded, msg = self.tracker.award_badge_with_message("user_cel", "first_contact")
+        assert awarded is True
+        assert len(msg) > 0
+        # Second time should not award
+        awarded2, msg2 = self.tracker.award_badge_with_message("user_cel", "first_contact")
+        assert awarded2 is False
+        assert msg2 == ""
+
+
+class TestLearningProgressTracker:
+    def setup_method(self):
+        self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.tracker = LearningProgressTracker(self.tmp.name)
+
+    def test_start_lesson(self):
+        self.tracker.start_lesson("user1", "1.1", 1)
+        progress = self.tracker.get_progress("user1")
+        assert len(progress) == 1
+        assert progress[0]["module_id"] == "1.1"
+        assert progress[0]["completed"] is False
+
+    def test_complete_lesson(self):
+        self.tracker.complete_lesson("user1", "1.1", 1, score=8.0)
+        completed = self.tracker.get_completed_lessons("user1")
+        assert "1.1" in completed
+
+    def test_get_completed_lessons(self):
+        self.tracker.complete_lesson("user1", "1.1", 1, score=9.0)
+        self.tracker.complete_lesson("user1", "1.2", 1, score=7.0)
+        self.tracker.start_lesson("user1", "1.3", 1)
+        completed = self.tracker.get_completed_lessons("user1")
+        assert len(completed) == 2
+        assert "1.3" not in completed
+
+    def test_get_level_score(self):
+        self.tracker.complete_lesson("user1", "1.1", 1, score=8.0)
+        self.tracker.complete_lesson("user1", "1.2", 1, score=6.0)
+        avg = self.tracker.get_level_score("user1", 1)
+        assert avg == 7.0
+
+    def test_get_level_score_no_data(self):
+        avg = self.tracker.get_level_score("nobody", 1)
+        assert avg is None
