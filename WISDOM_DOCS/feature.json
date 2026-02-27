@@ -1,0 +1,537 @@
+{
+  "project": "PROMETHEUS WISDOM",
+  "version": "1.0.0",
+  "total_features": 25,
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Foundation — Hello WISDOM",
+      "codename": "First Light",
+      "timeline": "Week 1-2",
+      "features": [
+        {
+          "id": "F01",
+          "name": "Multilingual Chat",
+          "priority": "P0",
+          "status": "planned",
+          "module": "voice",
+          "file": "wisdom/voice/chat_engine.py",
+          "description": "Core chat functionality. User sends message, WISDOM responds in user's language with streaming output.",
+          "acceptance_criteria": [
+            "User can send text messages and receive responses",
+            "Responses stream in real-time (token by token)",
+            "Conversation history maintained within session (last 20 messages)",
+            "Works with both Ollama and Gemini backends"
+          ],
+          "dependencies": ["F05"],
+          "effort": "M",
+          "user_story": "As a first-time AI user, I want to chat with WISDOM in my own language so that I can understand and interact naturally."
+        },
+        {
+          "id": "F02",
+          "name": "Auto Language Detection",
+          "priority": "P0",
+          "status": "planned",
+          "module": "voice",
+          "file": "wisdom/voice/language_detect.py",
+          "description": "Automatically detect the user's language from their first message and set it as default. Support 10+ languages.",
+          "acceptance_criteria": [
+            "Detects Thai, English, Hindi, Spanish, Chinese, Arabic, Portuguese, Swahili, Indonesian, French",
+            "Detection accuracy > 95% for messages with 5+ words",
+            "Language stored in user profile and persisted",
+            "User can manually override detected language"
+          ],
+          "dependencies": [],
+          "effort": "S",
+          "user_story": "As a Thai speaker, I want WISDOM to automatically detect that I'm writing in Thai so I don't have to configure language settings."
+        },
+        {
+          "id": "F03",
+          "name": "User Profile System",
+          "priority": "P0",
+          "status": "planned",
+          "module": "brain",
+          "file": "wisdom/brain/user_profile.py",
+          "description": "Create and manage user profiles with name, language, skill level, interests, and preferences. Stored in local SQLite.",
+          "acceptance_criteria": [
+            "New users get a profile created on first interaction",
+            "Profile persists across sessions (SQLite)",
+            "Profile includes: name, language, skill_level, interests, goals, preferences",
+            "Profile can be exported as JSON",
+            "Profile can be deleted (right to be forgotten)"
+          ],
+          "dependencies": [],
+          "effort": "S",
+          "user_story": "As a returning user, I want WISDOM to remember my name and preferences so I don't have to repeat myself."
+        },
+        {
+          "id": "F04",
+          "name": "Conversation Memory (Short-term)",
+          "priority": "P0",
+          "status": "planned",
+          "module": "brain",
+          "file": "wisdom/brain/memory_manager.py",
+          "description": "Maintain conversation history within a session. Last 20 messages sent as context to LLM for coherent multi-turn conversation.",
+          "acceptance_criteria": [
+            "Last 20 messages maintained in memory",
+            "Context window managed to stay within LLM token limits",
+            "Older messages summarized before being dropped",
+            "Session history saved to SQLite on session end"
+          ],
+          "dependencies": ["F03"],
+          "effort": "S",
+          "user_story": "As a user, I want WISDOM to remember what we discussed earlier in our conversation so I don't have to repeat context."
+        },
+        {
+          "id": "F05",
+          "name": "Dual LLM Backend",
+          "priority": "P0",
+          "status": "planned",
+          "module": "core",
+          "file": "wisdom/core/llm_provider.py",
+          "description": "LLM abstraction layer with Ollama (local, free) as primary and Gemini 2.0 Flash (cloud, free tier) as fallback. Auto-detection and seamless switching.",
+          "acceptance_criteria": [
+            "Auto-detects if Ollama is running on localhost:11434",
+            "Falls back to Gemini if Ollama unavailable",
+            "Supports streaming for both providers",
+            "Returns LangChain-compatible ChatModel interface",
+            "Health check endpoint reports current provider",
+            "Works with zero configuration (env vars optional)"
+          ],
+          "dependencies": [],
+          "effort": "M",
+          "user_story": "As a developer deploying WISDOM, I want it to automatically use the best available LLM so I don't have to configure anything."
+        },
+        {
+          "id": "F06",
+          "name": "Streamlit Chat Interface",
+          "priority": "P0",
+          "status": "planned",
+          "module": "body",
+          "file": "wisdom/body/app.py",
+          "description": "Clean, modern chat interface built with Streamlit. Mobile-friendly, dark theme, minimal UI. First-time user should understand it immediately.",
+          "acceptance_criteria": [
+            "Chat bubble UI (user right, WISDOM left)",
+            "Streaming text display",
+            "Sidebar with user info and quick actions",
+            "Mobile-responsive layout",
+            "Page load < 3 seconds",
+            "Works on 3G connections"
+          ],
+          "dependencies": ["F01", "F03"],
+          "effort": "M",
+          "user_story": "As a non-technical user, I want a simple and beautiful chat interface that I can understand without instructions."
+        },
+        {
+          "id": "F07",
+          "name": "Welcome & Onboarding Flow",
+          "priority": "P0",
+          "status": "planned",
+          "module": "body",
+          "file": "wisdom/body/components/chat.py",
+          "description": "First-time user experience. WISDOM introduces itself, asks name, detects language, offers choices (Learn/Chat/Help). Warm and inviting.",
+          "acceptance_criteria": [
+            "Auto-triggered for new users (no profile found)",
+            "WISDOM greets in detected language",
+            "Asks for name (optional, can skip)",
+            "Offers 3 paths: Learn about AI / Just Chat / Help me with something",
+            "Stores choices in profile",
+            "Takes < 2 minutes to complete"
+          ],
+          "dependencies": ["F02", "F03", "F06"],
+          "effort": "S",
+          "user_story": "As someone who has never used AI before, I want a friendly welcome that guides me through my first interaction."
+        }
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Memory — WISDOM Remembers",
+      "codename": "Grey Awakens",
+      "timeline": "Week 3-4",
+      "features": [
+        {
+          "id": "F08",
+          "name": "Long-term Memory (Vector Store)",
+          "priority": "P0",
+          "status": "planned",
+          "module": "brain",
+          "file": "wisdom/brain/memory_manager.py",
+          "description": "Persist important facts and conversation summaries to ChromaDB vector store. Retrieve relevant context for future conversations using RAG.",
+          "acceptance_criteria": [
+            "Important facts extracted and stored as embeddings",
+            "Conversation summaries generated on session end",
+            "RAG retrieval: top 5 relevant memories per query",
+            "Works with local embeddings (nomic-embed-text via Ollama)",
+            "Falls back to Gemini embeddings if Ollama unavailable",
+            "Memory size manageable (auto-prune old, low-relevance entries)"
+          ],
+          "dependencies": ["F04", "F05"],
+          "effort": "L",
+          "user_story": "As a returning user, I want WISDOM to remember what we discussed last week so our conversation builds on previous context."
+        },
+        {
+          "id": "F09",
+          "name": "Knowledge Graph",
+          "priority": "P1",
+          "status": "planned",
+          "module": "brain",
+          "file": "wisdom/brain/knowledge_graph.py",
+          "description": "Personal knowledge graph storing user-topic-goal relationships. Neo4j Aura (free tier) with SQLite fallback for offline use.",
+          "acceptance_criteria": [
+            "Create/read/update/delete nodes and relationships",
+            "User-Topic, User-Goal, User-Module relationships",
+            "Topic prerequisite chains (learning path graph)",
+            "Works with Neo4j Aura free tier",
+            "Falls back to SQLite-based graph if Neo4j unavailable",
+            "Graph traversal for learning path recommendations"
+          ],
+          "dependencies": ["F03"],
+          "effort": "L",
+          "user_story": "As a user, I want WISDOM to understand the connections between what I've learned so it can recommend what to study next."
+        },
+        {
+          "id": "F10",
+          "name": "Skill Assessment",
+          "priority": "P1",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/skill_assessor.py",
+          "description": "5-question adaptive assessment to determine user's AI knowledge level (0-10 scale). Categories: AI Awareness, Prompt Skills, Digital Literacy, Coding, Domain Knowledge.",
+          "acceptance_criteria": [
+            "5 adaptive questions (next question based on previous answer)",
+            "Score 0-10 across 5 categories",
+            "Composite skill level calculated with weighted average",
+            "Results stored in user profile",
+            "Can be retaken anytime",
+            "Questions available in all supported languages"
+          ],
+          "dependencies": ["F03", "F01"],
+          "effort": "M",
+          "user_story": "As a new user, I want WISDOM to understand my current knowledge level so it can teach me at the right pace."
+        },
+        {
+          "id": "F11",
+          "name": "Learning Path (Level 1-3)",
+          "priority": "P1",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/learning_path.py",
+          "description": "Structured learning modules: L1 (What is AI?), L2 (Talking to AI), L3 (AI in Daily Life). Each module has lessons, exercises, and quizzes.",
+          "acceptance_criteria": [
+            "3 complete learning modules with content",
+            "Each module: 3-4 lessons, interactive exercises, quiz",
+            "Content adapts to user's language and context",
+            "Progress tracked per module (0-100%)",
+            "Quiz scoring with pass/fail (70% to pass)",
+            "Unlock next level on completion",
+            "Content uses real-life examples relevant to user's interests"
+          ],
+          "dependencies": ["F10", "F09"],
+          "effort": "L",
+          "user_story": "As a beginner, I want a structured path to learn about AI step by step so I don't feel overwhelmed."
+        },
+        {
+          "id": "F12",
+          "name": "Tone & Complexity Adaptation",
+          "priority": "P1",
+          "status": "planned",
+          "module": "voice",
+          "file": "wisdom/voice/tone_adapter.py",
+          "description": "Automatically adapt WISDOM's response style based on user signals. Detect confusion, excitement, boredom. Adjust formality and technical depth.",
+          "acceptance_criteria": [
+            "Detect user skill level from message patterns",
+            "Adapt vocabulary complexity to match user",
+            "Detect frustration/confusion and simplify",
+            "Detect engagement and increase depth",
+            "Formal/casual mode based on user's style",
+            "Changes reflected in system prompt dynamically"
+          ],
+          "dependencies": ["F01", "F03"],
+          "effort": "M",
+          "user_story": "As a user who gets confused easily, I want WISDOM to automatically simplify its explanations when I'm struggling."
+        },
+        {
+          "id": "F13",
+          "name": "Progress Dashboard",
+          "priority": "P2",
+          "status": "planned",
+          "module": "body",
+          "file": "wisdom/body/components/dashboard.py",
+          "description": "Visual dashboard showing learning progress, skill radar chart, achievements, and conversation statistics.",
+          "acceptance_criteria": [
+            "Learning progress bar per module",
+            "Skill radar chart (5 categories)",
+            "Total conversations count",
+            "Achievement badges display",
+            "Accessible from sidebar",
+            "Mobile-friendly layout"
+          ],
+          "dependencies": ["F10", "F11", "F06"],
+          "effort": "M",
+          "user_story": "As a learner, I want to see my progress visually so I feel motivated to continue."
+        }
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Intelligence — WISDOM Teaches",
+      "codename": "Green Wave",
+      "timeline": "Week 5-6",
+      "features": [
+        {
+          "id": "F14",
+          "name": "Learning Path (Level 4-5)",
+          "priority": "P1",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/learning_path.py",
+          "description": "Advanced learning modules: L4 (How AI Thinks), L5 (Code with AI). Teaching understanding and introductory coding with AI assistance.",
+          "acceptance_criteria": [
+            "2 complete learning modules",
+            "L4: AI internals explained simply (tokens, training, bias)",
+            "L5: First Python program with WISDOM guidance",
+            "Interactive coding exercises (input/output validation)",
+            "Code execution in safe sandbox (optional)",
+            "Adapted to user's language and interests"
+          ],
+          "dependencies": ["F11"],
+          "effort": "L",
+          "user_story": "As an intermediate user, I want to understand how AI works and start learning to code with AI's help."
+        },
+        {
+          "id": "F15",
+          "name": "Goal Setting & Tracking",
+          "priority": "P2",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/goal_tracker.py",
+          "description": "Users set personal goals. WISDOM breaks them into milestones, tracks progress, and provides encouragement.",
+          "acceptance_criteria": [
+            "User can set goals in natural language",
+            "WISDOM breaks goals into 3-5 milestones",
+            "Progress tracked as percentage",
+            "WISDOM proactively checks on goal progress",
+            "Celebration messages on milestone completion",
+            "Goals visible in sidebar and dashboard"
+          ],
+          "dependencies": ["F03", "F09"],
+          "effort": "M",
+          "user_story": "As a user with specific goals, I want WISDOM to help me break them down and track my progress."
+        },
+        {
+          "id": "F16",
+          "name": "Multi-Agent Capabilities",
+          "priority": "P2",
+          "status": "planned",
+          "module": "core",
+          "file": "wisdom/core/orchestrator.py",
+          "description": "WISDOM can operate in different modes: Teacher, Researcher, Quiz Master, Code Helper. Each mode has specialized prompts and behavior.",
+          "acceptance_criteria": [
+            "Teacher mode: structured lessons, patience, examples",
+            "Researcher mode: search knowledge, provide sources",
+            "Quiz Master mode: generate and grade quizzes",
+            "Code Helper mode: write, explain, debug code",
+            "Seamless switching between modes based on context",
+            "Quick action buttons in sidebar to switch modes"
+          ],
+          "dependencies": ["F01", "F05"],
+          "effort": "L",
+          "user_story": "As a user, I want WISDOM to switch between being a teacher, a researcher, and a coding assistant based on what I need."
+        },
+        {
+          "id": "F17",
+          "name": "REST API",
+          "priority": "P2",
+          "status": "planned",
+          "module": "body",
+          "file": "wisdom/body/api.py",
+          "description": "FastAPI REST API for programmatic access. Enables third-party integrations, mobile apps, and chatbot platforms.",
+          "acceptance_criteria": [
+            "POST /chat endpoint with user_id and message",
+            "GET/PUT /profile endpoints",
+            "GET /progress endpoint",
+            "GET /health endpoint",
+            "OpenAPI docs auto-generated",
+            "CORS configured for web frontends",
+            "Rate limiting (100 req/min per user)"
+          ],
+          "dependencies": ["F01", "F03"],
+          "effort": "M",
+          "user_story": "As a developer, I want API access to WISDOM so I can build custom interfaces or integrate it into other apps."
+        },
+        {
+          "id": "F18",
+          "name": "Achievement & Badge System",
+          "priority": "P2",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/goal_tracker.py",
+          "description": "Gamification through achievements. Badges for milestones: First Chat, Level Complete, 7-Day Streak, First Code, etc.",
+          "acceptance_criteria": [
+            "10+ achievement badges defined",
+            "Auto-awarded based on triggers (events)",
+            "Visual display in dashboard",
+            "Celebration message when earned",
+            "Shareable achievement summary (optional)"
+          ],
+          "dependencies": ["F13", "F15"],
+          "effort": "S",
+          "user_story": "As a learner, I want to earn badges for my achievements so I feel rewarded for my progress."
+        }
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Community — WISDOM for All",
+      "codename": "Community",
+      "timeline": "Week 7-8",
+      "features": [
+        {
+          "id": "F19",
+          "name": "Federated Learning Core",
+          "priority": "P2",
+          "status": "planned",
+          "module": "heart",
+          "file": "wisdom/heart/federated_core.py",
+          "description": "Privacy-preserving community learning. Aggregate anonymous usage patterns to improve WISDOM for everyone. Differential privacy applied.",
+          "acceptance_criteria": [
+            "Opt-in only (never automatic)",
+            "Only aggregated, anonymized data shared",
+            "Differential privacy noise applied",
+            "User can see exactly what would be shared before opting in",
+            "Improves prompt templates based on community patterns",
+            "No PII ever leaves the device"
+          ],
+          "dependencies": ["F03", "F08"],
+          "effort": "L",
+          "user_story": "As a privacy-conscious user, I want to help improve WISDOM for others without revealing my personal data."
+        },
+        {
+          "id": "F20",
+          "name": "Community Knowledge Base",
+          "priority": "P3",
+          "status": "planned",
+          "module": "heart",
+          "file": "wisdom/heart/community_knowledge.py",
+          "description": "Shared, community-curated knowledge base. Users can share useful Q&A pairs anonymously. Community votes on quality.",
+          "acceptance_criteria": [
+            "Submit Q&A pairs anonymously",
+            "Community upvote/downvote system",
+            "Top answers used as RAG context",
+            "Moderation system (report inappropriate content)",
+            "Search community knowledge"
+          ],
+          "dependencies": ["F08", "F19"],
+          "effort": "L",
+          "user_story": "As a community member, I want to share helpful answers so other users benefit from my experience."
+        },
+        {
+          "id": "F21",
+          "name": "Learning Path (Level 6-7)",
+          "priority": "P2",
+          "status": "planned",
+          "module": "soul",
+          "file": "wisdom/soul/learning_path.py",
+          "description": "Advanced modules: L6 (Build with AI), L7 (Create AI Tools). Teach users to build applications and eventually their own AI tools.",
+          "acceptance_criteria": [
+            "L6: Build a web app with AI assistance (guided project)",
+            "L7: Build and deploy an AI-powered tool",
+            "Step-by-step project guides",
+            "Code templates and starter projects",
+            "Deployment guidance (free hosting)"
+          ],
+          "dependencies": ["F14"],
+          "effort": "L",
+          "user_story": "As an advanced user, I want to learn how to build my own AI-powered applications so I become a creator, not just a consumer."
+        },
+        {
+          "id": "F22",
+          "name": "Profile Export & Import",
+          "priority": "P2",
+          "status": "planned",
+          "module": "brain",
+          "file": "wisdom/brain/user_profile.py",
+          "description": "Export all user data as JSON. Import to another WISDOM instance. Full data portability — your data, your choice.",
+          "acceptance_criteria": [
+            "Export: profile + progress + memories as JSON",
+            "Import: restore from JSON file",
+            "Delete: remove all data (right to be forgotten)",
+            "Works across different WISDOM deployments"
+          ],
+          "dependencies": ["F03"],
+          "effort": "S",
+          "user_story": "As a user, I want to export my data and move to a different WISDOM instance without losing my progress."
+        },
+        {
+          "id": "F23",
+          "name": "Voice Input (Speech-to-Text)",
+          "priority": "P3",
+          "status": "planned",
+          "module": "voice",
+          "file": "wisdom/voice/chat_engine.py",
+          "description": "Optional voice input using Whisper or browser Web Speech API. Enables users who can't type easily to interact with WISDOM.",
+          "acceptance_criteria": [
+            "Browser-based speech-to-text (Web Speech API)",
+            "Optional Whisper integration for accuracy",
+            "Works in all supported languages",
+            "Push-to-talk button in chat UI",
+            "Transcribed text shown before sending"
+          ],
+          "dependencies": ["F02", "F06"],
+          "effort": "M",
+          "user_story": "As a user who finds typing difficult, I want to speak to WISDOM so I can interact more naturally."
+        },
+        {
+          "id": "F24",
+          "name": "Offline Mode",
+          "priority": "P3",
+          "status": "planned",
+          "module": "core",
+          "file": "wisdom/core/llm_provider.py",
+          "description": "Core features work without internet when Ollama is available locally. Cached content for learning modules.",
+          "acceptance_criteria": [
+            "Chat works with local Ollama (no internet needed)",
+            "Learning module content cached locally",
+            "User profile and progress stored locally",
+            "Clear indicator when in offline mode",
+            "Sync when back online (optional)"
+          ],
+          "dependencies": ["F05"],
+          "effort": "M",
+          "user_story": "As a user with unreliable internet, I want WISDOM to work offline so I can continue learning anytime."
+        },
+        {
+          "id": "F25",
+          "name": "Plugin System",
+          "priority": "P3",
+          "status": "planned",
+          "module": "core",
+          "file": "wisdom/core/orchestrator.py",
+          "description": "Community-built extensions. Plugin interface for adding new capabilities, learning modules, language packs, and integrations.",
+          "acceptance_criteria": [
+            "Plugin interface defined (Python class)",
+            "Plugins auto-discovered from plugins/ directory",
+            "Example plugins: weather, calculator, translator",
+            "Plugin documentation and template",
+            "Sandboxed execution (plugins can't access core data)"
+          ],
+          "dependencies": ["F16"],
+          "effort": "L",
+          "user_story": "As a developer, I want to extend WISDOM with new capabilities without modifying the core codebase."
+        }
+      ]
+    }
+  ],
+  "effort_legend": {
+    "S": "Small — 1-2 days",
+    "M": "Medium — 3-5 days",
+    "L": "Large — 1-2 weeks"
+  },
+  "priority_legend": {
+    "P0": "Must have — MVP cannot launch without this",
+    "P1": "Should have — Important for core experience",
+    "P2": "Nice to have — Enhances the product significantly",
+    "P3": "Future — Planned for later versions"
+  }
+}

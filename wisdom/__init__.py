@@ -1,0 +1,75 @@
+"""
+PROMETHEUS WISDOM — AI Companion for Humanity
+=============================================
+
+An open-source AI personal companion designed to democratize AI access
+for the 6.8 billion people who have never interacted with AI.
+
+Usage:
+    from wisdom import Wisdom
+
+    w = Wisdom()
+    response = w.chat("Hello!")
+"""
+
+__version__ = "1.0.0"
+__author__ = "Project PROMETHEUS"
+
+__all__ = ["Wisdom"]
+
+
+class Wisdom:
+    """Main WISDOM AI Companion interface.
+
+    Orchestrates all subsystems (Brain, Voice, Heart, Soul, Body)
+    to provide a personalized, multilingual AI experience.
+    """
+
+    def __init__(self, user_id: str | None = None):
+        from wisdom.core.config import Config
+        from wisdom.core.llm_provider import LLMProvider
+        from wisdom.brain.user_profile import UserProfileManager
+        from wisdom.brain.memory_manager import MemoryManager
+        from wisdom.voice.language_detect import LanguageDetector
+        from wisdom.voice.tone_adapter import ToneAdapter
+        from wisdom.heart.privacy_manager import PrivacyManager
+        from wisdom.core.orchestrator import Orchestrator
+
+        self.config = Config()
+        self.llm_provider = LLMProvider(self.config)
+        self.profile_manager = UserProfileManager(self.config.db_path)
+        self.memory = MemoryManager(max_messages=self.config.max_memory_messages)
+        self.language_detector = LanguageDetector()
+        self.tone_adapter = ToneAdapter()
+        self.privacy_manager = PrivacyManager()
+        self.orchestrator = Orchestrator(
+            llm_provider=self.llm_provider,
+            memory=self.memory,
+            profile_manager=self.profile_manager,
+            language_detector=self.language_detector,
+            tone_adapter=self.tone_adapter,
+            privacy_manager=self.privacy_manager,
+        )
+
+        self.user_id = user_id
+
+    def chat(self, message: str, user_id: str | None = None) -> str:
+        """Send a message to WISDOM and get a response.
+
+        Args:
+            message: User's message in any supported language.
+            user_id: Optional user identifier. Uses default if not provided.
+
+        Returns:
+            WISDOM's response in the user's detected language.
+        """
+        uid = user_id or self.user_id or "default"
+        return self.orchestrator.process_message(uid, message)
+
+    def health_check(self) -> dict:
+        """Check the health of all WISDOM subsystems."""
+        return {
+            "status": "ok",
+            "version": __version__,
+            "llm": self.llm_provider.health_check(),
+        }
