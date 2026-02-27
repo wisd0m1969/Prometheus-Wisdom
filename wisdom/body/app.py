@@ -194,6 +194,26 @@ def main() -> None:
         render_onboarding()
         return
 
+    # RTL layout support for Arabic and Hebrew
+    if profile.language in ("ar", "he"):
+        st.markdown("""
+        <style>
+        .stChatMessage, .stMarkdown, .stTextInput > div > div > input,
+        .stTextArea > div > div > textarea, .stSelectbox > div > div {
+            direction: rtl;
+            text-align: right;
+        }
+        .stChatMessage [data-testid="stMarkdownContainer"] {
+            direction: rtl;
+            text-align: right;
+        }
+        .stSidebar .stMarkdown {
+            direction: rtl;
+            text-align: right;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
     render_sidebar()
 
     # Route to page

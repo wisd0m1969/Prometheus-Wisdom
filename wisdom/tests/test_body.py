@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 import wisdom.body.api as api_module
 from wisdom.body.api import app
 from wisdom.body.components.code_playground import _safe_exec
+from wisdom.body.components.chat import _offline_fallback, _OFFLINE_CONTENT
 
 
 def _llm_available() -> bool:
@@ -220,3 +221,37 @@ class TestCodePlayground:
         code = "def add(a, b): return a + b\nprint(add(2, 3))"
         stdout, stderr = _safe_exec(code)
         assert "5" in stdout
+
+
+class TestOfflineFallback:
+    def test_offline_fallback_ai_keyword(self):
+        response = _offline_fallback("What is AI?", "en")
+        assert len(response) > 0
+        assert "artificial intelligence" in response.lower() or "AI" in response
+
+    def test_offline_fallback_thai(self):
+        response = _offline_fallback("AI คืออะไร", "th")
+        assert len(response) > 0
+
+    def test_offline_fallback_unknown_topic(self):
+        response = _offline_fallback("xyzzy gibberish", "en")
+        assert len(response) > 0  # Should still return a default message
+
+    def test_offline_content_has_languages(self):
+        assert "en" in _OFFLINE_CONTENT
+        assert "th" in _OFFLINE_CONTENT
+
+    def test_offline_content_has_topics(self):
+        assert len(_OFFLINE_CONTENT["en"]) >= 3
+
+
+class TestAnalyticsEndpoint:
+    def test_get_analytics(self, client):
+        response = client.get("/api/v1/analytics?days=7")
+        assert response.status_code == 200
+        data = response.json()
+        assert "total_users" in data
+        assert "daily_active_users" in data
+        assert "event_counts" in data
+        assert "retention_rate_7d" in data
+        assert "lesson_completion_rate" in data

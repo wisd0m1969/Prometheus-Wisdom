@@ -72,6 +72,8 @@ class Orchestrator:
         self._adaptation_engine = None
         self._goal_tracker = None
         self._learning_progress = None
+        self._preference_learner = None
+        self._analytics = None
 
     @property
     def chat_engine(self):
@@ -95,6 +97,22 @@ class Orchestrator:
             config = Config()
             self._goal_tracker = GoalTracker(config.db_path)
         return self._goal_tracker
+
+    @property
+    def preference_learner(self):
+        if self._preference_learner is None:
+            from wisdom.soul.preference_learner import PreferenceLearner
+            self._preference_learner = PreferenceLearner()
+        return self._preference_learner
+
+    @property
+    def analytics(self):
+        if self._analytics is None:
+            from wisdom.core.analytics import Analytics
+            from wisdom.core.config import Config
+            config = Config()
+            self._analytics = Analytics(config.db_path)
+        return self._analytics
 
     @property
     def learning_progress(self):
@@ -242,8 +260,10 @@ class Orchestrator:
         history = self.memory.get_history(user_id)
         retrieved_context = self._retrieve_context(user_id, message, language=language)
 
-        # Step 5: Adaptation analysis
+        # Step 5: Adaptation analysis (+ preference hints)
         adaptation = self.adaptation_engine.adapt(profile, message, history)
+        pref_hints = self.preference_learner.get_prompt_hints(profile)
+        adaptation.prompt_modifiers.extend(pref_hints)
         self._current_mode = adaptation.recommended_mode
         self.chat_engine.set_mode(self._current_mode)
         logger.info("Step 5: Mode=%s, Difficulty=%.1f", self._current_mode, adaptation.difficulty_level)
@@ -298,6 +318,22 @@ class Orchestrator:
         # Step 13: Badge check (first_contact)
         if len(history) == 0:
             self.goal_tracker.award_badge(user_id, "first_contact")
+
+        # Step 14a: Analytics — track chat event
+        try:
+            self.analytics.track(user_id, "chat_message", {"mode": self._current_mode, "language": language})
+        except Exception:
+            pass
+
+        # Step 14b: Preference learning — update every 10 messages
+        if len(history) > 0 and len(history) % 10 == 0:
+            try:
+                updated = self.preference_learner.update_profile(profile, history)
+                if updated:
+                    self.profile_manager.update(profile)
+                    logger.info("Step 14: Updated learned preferences for user %s", user_id)
+            except Exception:
+                pass
 
         return response
 

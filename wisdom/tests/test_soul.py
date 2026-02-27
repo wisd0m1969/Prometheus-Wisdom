@@ -1,6 +1,7 @@
-"""Tests for WISDOM Soul module — adaptation, assessment, learning, goals."""
+"""Tests for WISDOM Soul module — adaptation, assessment, learning, goals, preferences."""
 
 import tempfile
+from datetime import datetime, timezone
 
 import pytest
 
@@ -8,6 +9,7 @@ from wisdom.soul.adaptation_engine import AdaptationEngine, AdaptationResult
 from wisdom.soul.skill_assessor import SkillAssessor
 from wisdom.soul.learning_path import LearningPath, LearningProgressTracker
 from wisdom.soul.goal_tracker import GoalTracker
+from wisdom.soul.preference_learner import PreferenceLearner
 from wisdom.brain.user_profile import UserProfile
 from wisdom.brain.memory_manager import Message
 
@@ -306,3 +308,90 @@ class TestLearningProgressTracker:
     def test_get_level_score_no_data(self):
         avg = self.tracker.get_level_score("nobody", 1)
         assert avg is None
+
+
+class TestPreferenceLearner:
+    def setup_method(self):
+        self.learner = PreferenceLearner()
+        self.profile = UserProfile(id="test", skill_level=3.0)
+
+    def test_default_preferences(self):
+        result = self.learner.analyze(self.profile, [])
+        assert result["learning_style"] == "balanced"
+        assert result["response_length"] == "balanced"
+        assert result["preferred_topics"] == []
+
+    def test_learn_coding_topic(self):
+        now = datetime.now(timezone.utc).isoformat()
+        history = [
+            Message(role="user", content="How do I write Python code?", timestamp=now),
+            Message(role="user", content="Show me a Python function", timestamp=now),
+            Message(role="user", content="Help me code a loop", timestamp=now),
+        ]
+        result = self.learner.analyze(self.profile, history)
+        assert "coding" in result["preferred_topics"]
+
+    def test_learn_step_by_step_style(self):
+        now = datetime.now(timezone.utc).isoformat()
+        history = [
+            Message(role="user", content="Explain step by step how AI works", timestamp=now),
+            Message(role="user", content="Show me step by step", timestamp=now),
+        ]
+        result = self.learner.analyze(self.profile, history)
+        assert result["learning_style"] == "step_by_step"
+
+    def test_learn_concise_preference(self):
+        now = datetime.now(timezone.utc).isoformat()
+        history = [
+            Message(role="user", content="Hi", timestamp=now),
+            Message(role="user", content="OK", timestamp=now),
+            Message(role="user", content="Yes", timestamp=now),
+            Message(role="user", content="Next", timestamp=now),
+        ]
+        result = self.learner.analyze(self.profile, history)
+        assert result["response_length"] == "concise"
+
+    def test_learn_technical_complexity(self):
+        now = datetime.now(timezone.utc).isoformat()
+        profile = UserProfile(id="test", skill_level=8.0)
+        history = [
+            Message(role="user", content="Explain the neural network architecture", timestamp=now),
+            Message(role="user", content="How does gradient descent work with embedding vectors?", timestamp=now),
+        ]
+        result = self.learner.analyze(profile, history)
+        assert result["complexity"] == "technical"
+
+    def test_update_profile(self):
+        now = datetime.now(timezone.utc).isoformat()
+        history = [
+            Message(role="user", content="Show me an example of AI", timestamp=now),
+            Message(role="user", content="Give me another example", timestamp=now),
+        ]
+        updated = self.learner.update_profile(self.profile, history)
+        assert updated is True
+        assert "learning_style" in self.profile.preferences
+
+    def test_get_prompt_hints_empty(self):
+        hints = self.learner.get_prompt_hints(self.profile)
+        assert isinstance(hints, list)
+        assert len(hints) == 0  # No preferences yet
+
+    def test_get_prompt_hints_with_prefs(self):
+        self.profile.preferences = {
+            "learning_style": "examples",
+            "response_length": "concise",
+            "preferred_topics": ["coding", "ai_basics"],
+        }
+        hints = self.learner.get_prompt_hints(self.profile)
+        assert any("examples" in h.lower() for h in hints)
+        assert any("short" in h.lower() for h in hints)
+        assert any("coding" in h.lower() for h in hints)
+
+    def test_learn_active_hours(self):
+        morning = datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc).isoformat()
+        history = [
+            Message(role="user", content="Hello", timestamp=morning),
+            Message(role="user", content="Good morning", timestamp=morning),
+        ]
+        result = self.learner.analyze(self.profile, history)
+        assert result["active_hours"] == "morning"

@@ -331,6 +331,16 @@ def export_user_data(user_id: str):
     return data
 
 
+@app.get("/api/v1/analytics")
+def get_analytics(days: int = 30):
+    """Get analytics summary (DAU, retention, completion rates)."""
+    from wisdom.core.analytics import Analytics
+
+    w = get_wisdom()
+    analytics = Analytics(w.config.db_path)
+    return analytics.get_summary(days)
+
+
 @app.get("/api/v1/health")
 def health_check():
     """Check WISDOM system health."""

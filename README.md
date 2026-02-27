@@ -6,7 +6,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-171%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-195%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -286,13 +286,14 @@ Prometheus-Wisdom/
 │   ├── plugins/                 # Plugin system
 │   │   ├── __init__.py          # Plugin interface + PluginManager
 │   │   └── example_plugin.py   # Example plugin
-│   └── tests/                   # 171 unit tests
+│   └── tests/                   # 195 unit tests
 │       ├── test_brain.py
 │       ├── test_voice.py
 │       ├── test_heart.py
 │       ├── test_soul.py
 │       ├── test_body.py
-│       └── test_plugins.py
+│       ├── test_plugins.py
+│       └── test_analytics.py
 ├── WISDOM_DOCS/                 # Architecture & design docs
 ├── Procfile                     # Deployment config
 ├── Makefile                     # Dev commands
@@ -310,16 +311,17 @@ Prometheus-Wisdom/
 make test
 ```
 
-171 tests across all modules:
+195 tests across all modules:
 
 | Module | Tests | Covers |
 |--------|-------|--------|
 | Brain | 29 | Profiles, memory, knowledge graph, embeddings, SQLite persistence |
 | Voice | 26 | Language detection, prompts, tone, chat engine, voice input |
 | Heart | 36 | Privacy, federated learning, community wiring, feedback |
-| Soul | 43 | Adaptation, assessment, learning, goals, badges, progress tracking |
-| Body | 20 | API endpoints, profiles, feedback, learning, export, code playground, offline mode |
+| Soul | 52 | Adaptation, assessment, learning, goals, badges, progress tracking, preference learning |
+| Body | 26 | API endpoints, profiles, feedback, learning, export, code playground, offline fallback, analytics |
 | Plugins | 17 | Plugin system, hooks, discovery, enable/disable |
+| Analytics | 9 | Event tracking, DAU, retention, completion rates, summary |
 
 ---
 
